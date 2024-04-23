@@ -5,7 +5,7 @@
 
 #include "include/printUtilities.h"
 #include "include/initUtilities.h"
-#include "include/MMMutilities.h"
+#include "include/MMMutilities.h" 
 
 #define USECBLAS
 #define DEBUG
@@ -51,7 +51,7 @@ int main(int argc, char** argv)
     double* columnB;
     uint nColumnsBblock, startPoint;
 
-    for(int i = 0; i < NPEs; i++)
+    for(uint i = 0; i < NPEs; i++)
     {
         nColumnsBblock = workSize + (i < workSizeRemainder ? 1 : 0);
         startPoint = i*workSize + (i < workSizeRemainder ? i : workSizeRemainder);
@@ -61,10 +61,14 @@ int main(int argc, char** argv)
         buildRecvCountsAndDispls(recvcounts, displs, NPEs, N, i);
         MPI_Allgatherv(myBblock, myWorkSize*nColumnsBblock, MPI_DOUBLE, columnB, recvcounts, displs, MPI_DOUBLE, MPI_COMM_WORLD);
         
+        #ifdef DEBUG
+            printMatrixDistributed(columnB, myWorkSize, N, myPID, NPEs);
+            printf("\n\n");
+        #endif
         #ifdef USECBLAS
             matMulCblas(myA, columnB, myC, myWorkSize, N, nColumnsBblock, startPoint);
         #else
-            matMul(myA, columnB, myC, myWorkSize, N, nColumnsBblock, );
+            matMul(myA, columnB, myC, myWorkSize, N, nColumnsBblock, startPoint);
         #endif
         free(myBblock);
         free(columnB);

@@ -1,13 +1,13 @@
 CC=mpicc
 INCLUDE=include
 
-CFLAGS=-O2 -Wall -Wextra -march=native-I$(INCLUDE) -lblas 
+CFLAGS=-O3 -Wall -Wextra -march=native -I$(INCLUDE) -lblas
 OBJDIR=obj
 SRC=src
-OBJECTS=$(patsubst $(SRC)/%.c, $(OBJDIR)/%.o, $(wildcard $(SRC)/*.c)) main.c
+OBJECTS=$(patsubst $(SRC)/%.c, $(OBJDIR)/%.o, $(wildcard $(SRC)/*.c))
 
-main: $(OBJECTS)
-	$(CC) $^ -o $@
+main: $(OBJECTS) main.c
+	$(CC) $^ -o $@ $(CFLAGS)
 $(OBJDIR)/main.o: main.c
 	$(CC) $(CFLAGS) -c $^ -o $@
 $(OBJDIR)/%.o: $(SRC)/%.c
