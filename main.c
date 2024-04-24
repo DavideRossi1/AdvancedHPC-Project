@@ -6,7 +6,7 @@
 #include <time.h>
 #ifdef CUDA
     #include <cuda_runtime.h>
-    #include <cuda.h>
+    #include <cublas_v2.h>
     #define NGPUS 8
 #endif
 
@@ -63,9 +63,9 @@ int main(int argc, char** argv)
     clock_t start, end;
 
     start = clock();
-    double* myA = (double*)malloc(myWorkSize*N*sizeof(double));
-    double* myB = (double*)malloc(myWorkSize*N*sizeof(double));
-    double* myC = (double*)malloc(myWorkSize*N*sizeof(double));
+    double* myA = (double*)malloc(N*myWorkSize*sizeof(double));
+    double* myB = (double*)malloc(N*myWorkSize*sizeof(double));
+    double* myC = (double*)malloc(N*myWorkSize*sizeof(double));
     initAndPrintMatrices(myA, myB, myC, N, myWorkSize, myRank, NPEs);
     end = clock();
     #ifdef PRINTTIME
@@ -77,13 +77,18 @@ int main(int argc, char** argv)
     double* myBblock;
     double* columnB;
     uint nColumnsBblock, startPoint;
-
+    #ifdef CUDA
+        double* myA_dev, *columnB_dev, *myC_dev;
+        cudaMalloc((void**)&myA_dev, myWorkSize*N*sizeof(double));
+        cudaMalloc((void**)&myC_dev, myWorkSize*N*sizeof(double));
+        cudaMemcpy(myA_dev, myA, myWorkSize*N*sizeof(double), cudaMemcpyHostToDevice);
+    #endif
     for(uint i = 0; i < NPEs; i++)
     {
         start = clock();
         nColumnsBblock = workSize + (i < workSizeRemainder ? 1 : 0);
         startPoint = i*workSize + (i < workSizeRemainder ? i : workSizeRemainder);
-        myBblock = (double*)malloc(myWorkSize*nColumnsBblock*sizeof(double));
+        myBblock = (double*)malloc(nColumnsBblock*myWorkSize*sizeof(double));
         readBlockFromMatrix(myBblock, myB, myWorkSize, nColumnsBblock, N, startPoint);
         columnB = (double*)malloc(nColumnsBblock*N*sizeof(double));
         buildRecvCountsAndDispls(recvcounts, displs, NPEs, N, i);
@@ -92,15 +97,27 @@ int main(int argc, char** argv)
         #ifdef PRINTTIME
             printf("Comm time for proc %d at iter %d: %f\n", myRank, i, (double)(end-start)/CLOCKS_PER_SEC);
         #endif
+        #ifdef CUDA
+            cudaMalloc((void**)&columnB_dev, nColumnsBblock*N*sizeof(double));
+            cudaMemcpy(columnB_dev, columnB, nColumnsBblock*N*sizeof(double), cudaMemcpyHostToDevice);
+            matMul(myA_dev, columnB_dev, myC_dev, myWorkSize, N, nColumnsBblock, startPoint);
+            cudaFree(myB_dev);
+        #else
         start = clock();
         matMul(myA, columnB, myC, myWorkSize, N, nColumnsBblock, startPoint);
         end = clock();
+        #endif
         #ifdef PRINTTIME
             printf("Multip time for proc %d at iter %d: %f\n", myRank, i, (double)(end-start)/CLOCKS_PER_SEC);
         #endif
         free(myBblock);
         free(columnB);
     } 
+    #ifdef CUDA
+        cudaMemcpy(myC, myC_dev, myWorkSize*N*sizeof(double), cudaMemcpyDeviceToHost);
+        cudaFree(myA_dev);
+        cudaFree(myC_dev);
+    #endif
     MPI_Barrier(MPI_COMM_WORLD);
     #ifdef PRINTMATRIX
         printMatrixDistributed(myC, myWorkSize, N, myRank, NPEs);

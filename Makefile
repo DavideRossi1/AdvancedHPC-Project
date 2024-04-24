@@ -5,6 +5,7 @@ SRC=src
 
 FLAGS=-O3 -Wall -Wextra -march=native -I$(INCLUDE) -fopenmp
 CBLAS=-DCBLAS -lopenblas
+CUDA=-DCUDA -lcublas -lcudart
 
 OBJECTS=$(patsubst $(SRC)/%.c, $(OBJDIR)/%.o, $(wildcard $(SRC)/*.c))
 
@@ -13,22 +14,33 @@ FLAGS+=-DDEBUG
 #FLAGS+=-DPRINTTIME
 FLAGS+=-DPRINTMATRIX
 
-blas: FLAGS+=$(CBLAS)
-
-blas: $(OBJECTS) main.c
+main: $(OBJECTS) main.c
 	$(CC) $^ -o $@ $(FLAGS)
 $(OBJDIR)/main.o: main.c
-	$(CC) $(FLAGS) -c $^ -o $@
+	@$(CC) $(FLAGS) -c $^ -o $@
 $(OBJDIR)/%.o: $(SRC)/%.c
-	mkdir -p $(OBJDIR)
-	$(CC) $(FLAGS) -c $^ -o $@
+	@mkdir -p $(OBJDIR)
+	@$(CC) $(FLAGS) -c $^ -o $@
 
-.PHONY: clean
+blas: FLAGS+=$(CBLAS)
+blas: main
+	@$(MAKE) main --no-print-directory
+
+cuda: FLAGS+=$(CUDA)
+cuda: main
+	@$(MAKE) main --no-print-directory
+
+
 clean:
-	rm -rf blas main.o
-	rm -rf $(OBJDIR)
+	@rm -rf main main.o
+	@rm -rf $(OBJDIR)
 
 runBlas:
-	$(MAKE) clean
-	$(MAKE) blas
-	mpirun -np $(NP) ./blas $(SZ)
+	@$(MAKE) clean
+	@$(MAKE) blas
+	@mpirun -np $(NP) ./main $(SZ)
+
+runCuda:
+	@$(MAKE) clean
+	@$(MAKE) cuda
+	@mpirun -np $(NP) ./main $(SZ)
