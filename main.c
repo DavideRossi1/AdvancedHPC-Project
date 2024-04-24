@@ -1,4 +1,5 @@
 #include <mpi.h>
+#include <omp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -20,8 +21,27 @@ void buildRecvCountsAndDispls(int* recvcounts, int* displs, uint NPEs, uint N, u
     for(uint j=0; j<NPEs; j++){
         uint nRows= N/NPEs + (j < N % NPEs ? 1 : 0);
         recvcounts[j] = nRows*nCols;
-        displs[j] = j>0 ? displs[j-1] + recvcounts[j-1] : 0;
+        displs[j] = j > 0 ? displs[j-1] + recvcounts[j-1] : 0;
     }
+}
+
+void initAndPrintMatrices(double* myA, double* myB, double* myC, uint N, uint myWorkSize, int myRank, int NPEs)
+{
+    memset(myC, 0, myWorkSize*N*sizeof(double));
+    #ifdef DEBUG
+        initID(myA, myRank, N, myWorkSize, NPEs);
+        initOrder(myB, myRank, N, myWorkSize, NPEs);
+    #else
+        initRandom(myA, N*myWorkSize);
+        initRandom(myB, N*myWorkSize);
+    #endif
+    MPI_Barrier(MPI_COMM_WORLD);
+    #ifdef PRINTMATRIX
+        printMatrixDistributed(myA, myWorkSize, N, myRank, NPEs);
+        printf("\n");
+        printMatrixDistributed(myB, myWorkSize, N, myRank, NPEs);
+        printf("\n");
+    #endif
 }
 
 int main(int argc, char** argv)
@@ -46,26 +66,17 @@ int main(int argc, char** argv)
     double* myA = (double*)malloc(myWorkSize*N*sizeof(double));
     double* myB = (double*)malloc(myWorkSize*N*sizeof(double));
     double* myC = (double*)malloc(myWorkSize*N*sizeof(double));
-    memset(myC, 0, myWorkSize*N*sizeof(double));
-
-    initRandom(myA, myRank, N, myWorkSize, NPEs);
-    initRandom(myB, myRank, N, myWorkSize, NPEs);
-    MPI_Barrier(MPI_COMM_WORLD);
+    initAndPrintMatrices(myA, myB, myC, N, myWorkSize, myRank, NPEs);
     end = clock();
-    printf("Init time for proc %d: %f\n", myRank, (double)(end-start)/CLOCKS_PER_SEC);
-    #ifdef PRINTMATRIX
-        printMatrixDistributed(myA, myWorkSize, N, myPID, NPEs);
-        printf("\n\n");
-        printMatrixDistributed(myB, myWorkSize, N, myPID, NPEs);
-        printf("\n\n");
+    #ifdef PRINTTIME
+        printf("Init time for proc %d: %f\n", myRank, (double)(end-start)/CLOCKS_PER_SEC);
     #endif
-
+    
     int* recvcounts = (int*)malloc(NPEs*sizeof(int));
     int* displs = (int*)malloc(NPEs*sizeof(int));
     double* myBblock;
     double* columnB;
     uint nColumnsBblock, startPoint;
-
 
     for(uint i = 0; i < NPEs; i++)
     {
@@ -78,17 +89,21 @@ int main(int argc, char** argv)
         buildRecvCountsAndDispls(recvcounts, displs, NPEs, N, i);
         MPI_Allgatherv(myBblock, myWorkSize*nColumnsBblock, MPI_DOUBLE, columnB, recvcounts, displs, MPI_DOUBLE, MPI_COMM_WORLD);
         end = clock();
-        printf("Comm time for proc %d at iter %d: %f\n", myRank, i, (double)(end-start)/CLOCKS_PER_SEC);
+        #ifdef PRINTTIME
+            printf("Comm time for proc %d at iter %d: %f\n", myRank, i, (double)(end-start)/CLOCKS_PER_SEC);
+        #endif
         start = clock();
         matMul(myA, columnB, myC, myWorkSize, N, nColumnsBblock, startPoint);
         end = clock();
-        printf("Multip time for proc %d at iter %d: %f\n", myRank, i, (double)(end-start)/CLOCKS_PER_SEC);
+        #ifdef PRINTTIME
+            printf("Multip time for proc %d at iter %d: %f\n", myRank, i, (double)(end-start)/CLOCKS_PER_SEC);
+        #endif
         free(myBblock);
         free(columnB);
     } 
     MPI_Barrier(MPI_COMM_WORLD);
     #ifdef PRINTMATRIX
-        printMatrixDistributed(myC, myWorkSize, N, myPID, NPEs);
+        printMatrixDistributed(myC, myWorkSize, N, myRank, NPEs);
     #endif
 
     free(myA);
@@ -97,7 +112,9 @@ int main(int argc, char** argv)
     free(recvcounts);
     free(displs);
     programEnd = clock();
-    printf("Total time for proc %d: %f\n", myRank, (double)(programEnd-programStart)/CLOCKS_PER_SEC);
+    #ifdef PRINTTIME
+        printf("Total time for proc %d: %f\n", myRank, (double)(programEnd-programStart)/CLOCKS_PER_SEC);
+    #endif
     MPI_Finalize();
     return 0;
 }

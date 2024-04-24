@@ -4,9 +4,14 @@
 #include "../include/printUtilities.h"
 
 void printMatrix(double *matrix, uint nRows, uint nCols) {
+  #ifdef DEBUG
+    const char* format = "%.0f ";
+  #else
+    const char* format = "%.2f ";
+  #endif
   for (uint i = 0; i < nRows; i++) {
     for (uint j = 0; j < nCols; j++)
-      printf("%.0f ", matrix[i * nCols + j]);
+      printf(format, matrix[i * nCols + j]);
     printf("\n");
   }
 }

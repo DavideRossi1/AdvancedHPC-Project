@@ -1,10 +1,12 @@
 #include <string.h>
 #include <cblas.h>
+#include <omp.h>
 
 #include "../include/MMMutilities.h"
 
 void readBlockFromMatrix(double *block, double *matrix, uint nBlockRows, uint nBlockCols, uint nMatrixCols, uint startingCol) 
 {
+#pragma omp parallel for collapse(2)
   for (uint i = 0; i < nBlockRows; i++)
     for (uint j = 0; j < nBlockCols; j++)
       block[i * nBlockCols + j] = matrix[i * nMatrixCols + j + startingCol];
@@ -12,6 +14,7 @@ void readBlockFromMatrix(double *block, double *matrix, uint nBlockRows, uint nB
 
 void placeBlockInMatrix(double *block, double *matrix, uint nBlockRows, uint nBlockCols, uint nMatrixCols, uint startingCol) 
 {
+#pragma omp parallel for collapse(2)
   for (uint i = 0; i < nBlockRows; i++)
     for (uint j = 0; j < nBlockCols; j++)
       matrix[i * nMatrixCols + j + startingCol] = block[i * nBlockCols + j];
