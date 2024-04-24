@@ -1,4 +1,7 @@
+#include <stdlib.h>
 
-void init(double* matrix, int myPID, int N, int workSize, int NPEs);
+void initOrder(double* matrix, uint myRank, uint N, uint workSize, uint NPEs);
 
-void initID(double* matrix, int myPID, int N, int workSize, int NPEs);
+void initID(double* matrix, uint myRank, uint N, uint workSize, uint NPEs);
+
+void initRandom(double* matrix, uint myRank, uint N, uint workSize, uint NPEs);
