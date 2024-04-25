@@ -3,19 +3,20 @@ INCLUDE=include
 OBJDIR=obj
 SRC=src
 
-FLAGS=-O3 -Wall -Wextra -march=native -I$(INCLUDE) -fopenmp
+FLAGS=-O3 -Wall -Wextra -march=native -I$(INCLUDE)
+OPENMP=-fopenmp
 CBLAS=-DCBLAS -lopenblas
 CUDA=-DCUDA -lcublas -lcudart
 
 OBJECTS=$(patsubst $(SRC)/%.c, $(OBJDIR)/%.o, $(wildcard $(SRC)/*.c))
 
-
+FLAGS+=$(OPENMP)
 FLAGS+=-DDEBUG
 #FLAGS+=-DPRINTTIME
 FLAGS+=-DPRINTMATRIX
 
 main: $(OBJECTS) main.c
-	$(CC) $^ -o $@ $(FLAGS)
+	@$(CC) $^ -o $@ $(FLAGS)
 $(OBJDIR)/main.o: main.c
 	@$(CC) $(FLAGS) -c $^ -o $@
 $(OBJDIR)/%.o: $(SRC)/%.c

@@ -1,5 +1,4 @@
 #include <mpi.h>
-#include <omp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -55,12 +54,12 @@ int main(int argc, char** argv)
         int myPID = myRank % NGPUS;
         cudaSetDevice(myPID);
     #endif
-    clock_t programStart, programEnd;
+    clock_t programStart, start, end;
+    double elapsedTime;
     programStart = clock();
     const uint workSize = N/NPEs;
     const uint workSizeRemainder = N % NPEs;
-    const uint myWorkSize = workSize + (myRank < workSizeRemainder ? 1 : 0);
-    clock_t start, end;
+    const uint myWorkSize = workSize + ((uint)myRank < workSizeRemainder ? 1 : 0);
 
     start = clock();
     double* myA = (double*)malloc(N*myWorkSize*sizeof(double));
@@ -68,8 +67,9 @@ int main(int argc, char** argv)
     double* myC = (double*)malloc(N*myWorkSize*sizeof(double));
     initAndPrintMatrices(myA, myB, myC, N, myWorkSize, myRank, NPEs);
     end = clock();
+    elapsedTime = (double)(end-start)/CLOCKS_PER_SEC;
     #ifdef PRINTTIME
-        printf("Init time for proc %d: %f\n", myRank, (double)(end-start)/CLOCKS_PER_SEC);
+        printf("Init time for proc %d: %f\n", myRank, elapsedTime);
     #endif
     
     int* recvcounts = (int*)malloc(NPEs*sizeof(int));
@@ -83,7 +83,7 @@ int main(int argc, char** argv)
         cudaMalloc((void**)&myC_dev, myWorkSize*N*sizeof(double));
         cudaMemcpy(myA_dev, myA, myWorkSize*N*sizeof(double), cudaMemcpyHostToDevice);
     #endif
-    for(uint i = 0; i < NPEs; i++)
+    for(uint i = 0; i < (uint)NPEs; i++)
     {
         start = clock();
         nColumnsBblock = workSize + (i < workSizeRemainder ? 1 : 0);
@@ -94,21 +94,25 @@ int main(int argc, char** argv)
         buildRecvCountsAndDispls(recvcounts, displs, NPEs, N, i);
         MPI_Allgatherv(myBblock, myWorkSize*nColumnsBblock, MPI_DOUBLE, columnB, recvcounts, displs, MPI_DOUBLE, MPI_COMM_WORLD);
         end = clock();
+        elapsedTime = (double)(end-start)/CLOCKS_PER_SEC;
         #ifdef PRINTTIME
-            printf("Comm time for proc %d at iter %d: %f\n", myRank, i, (double)(end-start)/CLOCKS_PER_SEC);
+            printf("Comm time for proc %d at iter %d: %f\n", myRank, i, elapsedTime);
         #endif
         #ifdef CUDA
             cudaMalloc((void**)&columnB_dev, nColumnsBblock*N*sizeof(double));
             cudaMemcpy(columnB_dev, columnB, nColumnsBblock*N*sizeof(double), cudaMemcpyHostToDevice);
+            start = clock();
             matMul(myA_dev, columnB_dev, myC_dev, myWorkSize, N, nColumnsBblock, startPoint);
+            end = clock();
             cudaFree(myB_dev);
         #else
-        start = clock();
-        matMul(myA, columnB, myC, myWorkSize, N, nColumnsBblock, startPoint);
-        end = clock();
+            start = clock();
+            matMul(myA, columnB, myC, myWorkSize, N, nColumnsBblock, startPoint);
+            end = clock();
         #endif
+        elapsedTime = (double)(end-start)/CLOCKS_PER_SEC;
         #ifdef PRINTTIME
-            printf("Multip time for proc %d at iter %d: %f\n", myRank, i, (double)(end-start)/CLOCKS_PER_SEC);
+            printf("Multip time for proc %d at iter %d: %f\n", myRank, i, elapsedTime);
         #endif
         free(myBblock);
         free(columnB);
@@ -128,9 +132,10 @@ int main(int argc, char** argv)
     free(myC);
     free(recvcounts);
     free(displs);
-    programEnd = clock();
+    end = clock();
+    elapsedTime = (double)(end-programStart)/CLOCKS_PER_SEC;
     #ifdef PRINTTIME
-        printf("Total time for proc %d: %f\n", myRank, (double)(programEnd-programStart)/CLOCKS_PER_SEC);
+        printf("Total time for proc %d: %f\n", myRank, elapsedTime);
     #endif
     MPI_Finalize();
     return 0;

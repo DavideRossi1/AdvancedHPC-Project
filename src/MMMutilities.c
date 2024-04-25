@@ -1,6 +1,8 @@
 #include <string.h>
-#include <cblas.h>
 #include <omp.h>
+#ifdef CBLAS
+  #include <cblas.h>
+#endif
 
 #include "../include/MMMutilities.h"
 
