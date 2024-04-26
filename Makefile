@@ -11,9 +11,9 @@ CUDA=-DCUDA -lcublas -lcudart
 OBJECTS=$(patsubst $(SRC)/%.c, $(OBJDIR)/%.o, $(wildcard $(SRC)/*.c))
 
 FLAGS+=$(OPENMP)
-FLAGS+=-DDEBUG
+#FLAGS+=-DDEBUG
 #FLAGS+=-DPRINTTIME
-FLAGS+=-DPRINTMATRIX
+#FLAGS+=-DPRINTMATRIX
 
 main: $(OBJECTS) main.c
 	@$(CC) $^ -o $@ $(FLAGS)
