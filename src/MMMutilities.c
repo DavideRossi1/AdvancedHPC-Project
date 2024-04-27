@@ -4,6 +4,11 @@
   #include <cblas.h>
 #endif
 
+#ifdef CUDA
+  #include <cublas_v2.h>
+  #include <cuda_runtime.h>
+#endif
+
 #include "../include/MMMutilities.h"
 
 void readBlockFromMatrix(double *block, double *matrix, uint nBlockRows, uint nBlockCols, uint nMatrixCols, uint startingCol) 
@@ -29,8 +34,10 @@ void matMul(double *A, double *B, double *C, uint nRowsA, uint nColsARowsB, uint
     cublasCreate(&handle);
     double *myCBlock = (double *)malloc(nRowsA * nColsB * sizeof(double));
     memset(myCBlock, 0, nRowsA * nColsB * sizeof(double));
-    cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, nRowsA, nColsB, 
-        nColsARowsB, 1.0, A, nColsARowsB, B, nColsB, 1.0, myCBlock, nColsB);
+    const double alpha = 1.0;
+    const double beta = 1.0; 
+cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, nRowsA, nColsB, 
+        nColsARowsB, &alpha, A, nColsARowsB, B, nColsB, &beta, myCBlock, nColsB);
     placeBlockInMatrix(myCBlock, C, nRowsA, nColsB, nColsARowsB, startingCol);
     free(myCBlock);
     cublasDestroy(handle);  

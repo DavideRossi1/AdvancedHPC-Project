@@ -16,12 +16,10 @@ FLAGS+=$(OPENMP)
 #FLAGS+=-DPRINTMATRIX
 
 main: $(OBJECTS) main.c
-	@$(CC) $^ -o $@ $(FLAGS)
-$(OBJDIR)/main.o: main.c
-	@$(CC) $(FLAGS) -c $^ -o $@
+	$(CC) $(FLAGS) $^ -o $@
 $(OBJDIR)/%.o: $(SRC)/%.c
 	@mkdir -p $(OBJDIR)
-	@$(CC) $(FLAGS) -c $^ -o $@
+	$(CC) $(FLAGS) -c $^ -o $@
 
 blas: FLAGS+=$(CBLAS)
 blas: main
@@ -29,7 +27,7 @@ blas: main
 
 cuda: FLAGS+=$(CUDA)
 cuda: main
-	@$(MAKE) main --no-print-directory
+	$(MAKE) main --no-print-directory
 
 
 clean:

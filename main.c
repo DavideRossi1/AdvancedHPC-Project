@@ -6,7 +6,6 @@
 #ifdef CUDA
     #include <cuda_runtime.h>
     #include <cublas_v2.h>
-    #define NGPUS 8
 #endif
 
 
@@ -51,6 +50,8 @@ int main(int argc, char** argv)
     MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
     MPI_Comm_size(MPI_COMM_WORLD, &NPEs);
     #ifdef CUDA
+	int NGPUS;
+	cudaGetDeviceCount(&NGPUS);
         int myPID = myRank % NGPUS;
         cudaSetDevice(myPID);
     #endif
@@ -104,7 +105,7 @@ int main(int argc, char** argv)
             start = clock();
             matMul(myA_dev, columnB_dev, myC_dev, myWorkSize, N, nColumnsBblock, startPoint);
             end = clock();
-            cudaFree(myB_dev);
+            cudaFree(columnB_dev);
         #else
             start = clock();
             matMul(myA, columnB, myC, myWorkSize, N, nColumnsBblock, startPoint);
