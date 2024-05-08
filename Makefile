@@ -37,7 +37,7 @@ clean:
 git:
 	@$(MAKE) clean
 	@git add .
-	@git commit -m "$(MSG)"
+	@git commit -m "$(MS)"
 	@git push
 
 runBlas:
