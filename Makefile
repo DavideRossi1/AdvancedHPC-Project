@@ -12,7 +12,7 @@ OBJECTS=$(patsubst $(SRC)/%.c, $(OBJDIR)/%.o, $(wildcard $(SRC)/*.c))
 
 FLAGS+=$(OPENMP)
 #FLAGS+=-DDEBUG
-#FLAGS+=-DPRINTTIME
+FLAGS+=-DPRINTTIME
 #FLAGS+=-DPRINTMATRIX
 
 main: $(OBJECTS) main.c
@@ -33,6 +33,12 @@ cuda: main
 clean:
 	@rm -rf main main.o
 	@rm -rf $(OBJDIR)
+
+git:
+	@$(MAKE) clean
+	@git add .
+	@git commit -m "$(MSG)"
+	@git push
 
 runBlas:
 	@$(MAKE) clean

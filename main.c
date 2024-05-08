@@ -1,8 +1,9 @@
 #include <mpi.h>
+#include <mpi_proto.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
+#include <sys/time.h>
 #ifdef CUDA
     #include <cuda_runtime.h>
     #include <cublas_v2.h>
@@ -42,6 +43,7 @@ void initAndPrintMatrices(double* myA, double* myB, double* myC, uint N, uint my
     #endif
 }
 
+
 int main(int argc, char** argv)
 {
     const uint N = atoi(argv[1]);
@@ -55,22 +57,25 @@ int main(int argc, char** argv)
         int myPID = myRank % NGPUS;
         cudaSetDevice(myPID);
     #endif
-    clock_t programStart, start, end;
-    double elapsedTime;
-    programStart = clock();
+    double maxInitTime, maxCommTime, maxMultTime;
+    double programStart, start;
+    double commTime = 0;
+    double multTime = 0;
     const uint workSize = N/NPEs;
     const uint workSizeRemainder = N % NPEs;
     const uint myWorkSize = workSize + ((uint)myRank < workSizeRemainder ? 1 : 0);
 
-    start = clock();
+    MPI_Barrier(MPI_COMM_WORLD);
+    programStart = MPI_Wtime();
     double* myA = (double*)malloc(N*myWorkSize*sizeof(double));
     double* myB = (double*)malloc(N*myWorkSize*sizeof(double));
     double* myC = (double*)malloc(N*myWorkSize*sizeof(double));
     initAndPrintMatrices(myA, myB, myC, N, myWorkSize, myRank, NPEs);
-    end = clock();
-    elapsedTime = (double)(end-start)/CLOCKS_PER_SEC;
+    double initTime = MPI_Wtime() - programStart;
+    MPI_Reduce(&initTime, &maxInitTime, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
     #ifdef PRINTTIME
-        printf("Init time for proc %d: %f\n", myRank, elapsedTime);
+        if(!myRank)
+            printf("%f;", maxInitTime);
     #endif
     
     int* recvcounts = (int*)malloc(NPEs*sizeof(int));
@@ -86,7 +91,8 @@ int main(int argc, char** argv)
     #endif
     for(uint i = 0; i < (uint)NPEs; i++)
     {
-        start = clock();
+        MPI_Barrier(MPI_COMM_WORLD);
+        start = MPI_Wtime();
         nColumnsBblock = workSize + (i < workSizeRemainder ? 1 : 0);
         startPoint = i*workSize + (i < workSizeRemainder ? i : workSizeRemainder);
         myBblock = (double*)malloc(nColumnsBblock*myWorkSize*sizeof(double));
@@ -94,26 +100,18 @@ int main(int argc, char** argv)
         columnB = (double*)malloc(nColumnsBblock*N*sizeof(double));
         buildRecvCountsAndDispls(recvcounts, displs, NPEs, N, i);
         MPI_Allgatherv(myBblock, myWorkSize*nColumnsBblock, MPI_DOUBLE, columnB, recvcounts, displs, MPI_DOUBLE, MPI_COMM_WORLD);
-        end = clock();
-        elapsedTime = (double)(end-start)/CLOCKS_PER_SEC;
-        #ifdef PRINTTIME
-            printf("Comm time for proc %d at iter %d: %f\n", myRank, i, elapsedTime);
-        #endif
+        commTime += MPI_Wtime() - start;
         #ifdef CUDA
             cudaMalloc((void**)&columnB_dev, nColumnsBblock*N*sizeof(double));
             cudaMemcpy(columnB_dev, columnB, nColumnsBblock*N*sizeof(double), cudaMemcpyHostToDevice);
-            start = clock();
+            start = MPI_Wtime();
             matMul(myA_dev, columnB_dev, myC_dev, myWorkSize, N, nColumnsBblock, startPoint);
-            end = clock();
+            multTime += MPI_Wtime() - start;
             cudaFree(columnB_dev);
         #else
-            start = clock();
+            start = MPI_Wtime();
             matMul(myA, columnB, myC, myWorkSize, N, nColumnsBblock, startPoint);
-            end = clock();
-        #endif
-        elapsedTime = (double)(end-start)/CLOCKS_PER_SEC;
-        #ifdef PRINTTIME
-            printf("Multip time for proc %d at iter %d: %f\n", myRank, i, elapsedTime);
+            multTime += MPI_Wtime() - start;
         #endif
         free(myBblock);
         free(columnB);
@@ -127,17 +125,19 @@ int main(int argc, char** argv)
     #ifdef PRINTMATRIX
         printMatrixDistributed(myC, myWorkSize, N, myRank, NPEs);
     #endif
-
+    MPI_Reduce(&commTime, &maxCommTime, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&multTime, &maxMultTime, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    #ifdef PRINTTIME
+        if(!myRank){
+            printf("%f;", maxCommTime);
+            printf("%f\n", maxMultTime);
+        }
+    #endif
     free(myA);
     free(myB);
     free(myC);
     free(recvcounts);
     free(displs);
-    end = clock();
-    elapsedTime = (double)(end-programStart)/CLOCKS_PER_SEC;
-    #ifdef PRINTTIME
-        printf("Total time for proc %d: %f\n", myRank, elapsedTime);
-    #endif
     MPI_Finalize();
     return 0;
 }
