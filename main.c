@@ -1,5 +1,4 @@
 #include <mpi.h>
-#include <mpi_proto.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -48,6 +47,9 @@ int main(int argc, char** argv)
 {
     const uint N = atoi(argv[1]);
     int myRank, NPEs;
+    #ifdef PRINTTIME
+        printf("Init;Comm;Mult\n");
+    #endif
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
     MPI_Comm_size(MPI_COMM_WORLD, &NPEs);

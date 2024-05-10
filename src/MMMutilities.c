@@ -35,9 +35,9 @@ void matMul(double *A, double *B, double *C, uint nRowsA, uint nColsARowsB, uint
     double *myCBlock = (double *)malloc(nRowsA * nColsB * sizeof(double));
     memset(myCBlock, 0, nRowsA * nColsB * sizeof(double));
     const double alpha = 1.0;
-    const double beta = 1.0; 
-    cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, nRowsA, nColsB, 
-        nColsARowsB, &alpha, A, nColsARowsB, B, nColsB, &beta, myCBlock, nColsB);
+    const double beta = 0.0;
+    cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, nColsB, nRowsA,
+        nColsARowsB, &alpha, B, nColsARowsB, A, nColsARowsB, &beta, myCBlock, nColsB);
     placeBlockInMatrix(myCBlock, C, nRowsA, nColsB, nColsARowsB, startingCol);
     free(myCBlock);
     cublasDestroy(handle);  
