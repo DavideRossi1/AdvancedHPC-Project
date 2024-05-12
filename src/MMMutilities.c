@@ -10,6 +10,7 @@
 #endif
 
 #include "../include/MMMutilities.h"
+#include "../include/printUtilities.h"
 
 void readBlockFromMatrix(double *block, double *matrix, uint nBlockRows, uint nBlockCols, uint nMatrixCols, uint startingCol) 
 {
@@ -32,15 +33,30 @@ void matMul(double *A, double *B, double *C, uint nRowsA, uint nColsARowsB, uint
   #ifdef CUDA
     cublasHandle_t handle;
     cublasCreate(&handle);
+    #ifdef DEBUG
+      printf("\nB:\n");
+      printMatrix(B,nColsARowsB, nColsB);
+    #endif
+    double* B_dev;
+    cudaMalloc((void**)&B_dev, nColsARowsB*nColsB*sizeof(double));
+    cudaMemcpy(B_dev, B, nColsARowsB*nColsB*sizeof(double), cudaMemcpyHostToDevice);
+    
+    double* myCBlock_dev;
+    cudaMalloc((void**)&myCBlock_dev, nRowsA*nColsB*sizeof(double));
+    
     double *myCBlock = (double *)malloc(nRowsA * nColsB * sizeof(double));
     memset(myCBlock, 0, nRowsA * nColsB * sizeof(double));
+    
     const double alpha = 1.0;
     const double beta = 0.0;
     cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, nColsB, nRowsA,
-        nColsARowsB, &alpha, B, nColsARowsB, A, nColsARowsB, &beta, myCBlock, nColsB);
-    placeBlockInMatrix(myCBlock, C, nRowsA, nColsB, nColsARowsB, startingCol);
+        nColsARowsB, &alpha, B_dev, nColsB, A, nColsARowsB, &beta, myCBlock_dev, nColsB);
+    cudaMemcpy(myCBlock, myCBlock_dev, nRowsA*nColsB, cudaMemcpyDeviceToHost);
+    placeBlockInMatrix(myCBlock, C, nColsB, nRowsA, nColsARowsB, startingCol);
     free(myCBlock);
-    cublasDestroy(handle);  
+    cudaFree(B_dev);
+    cudaFree(myCBlock_dev);
+    cublasDestroy(handle);
   #else
   #ifdef CBLAS
     double *myCBlock = (double *)malloc(nRowsA * nColsB * sizeof(double));

@@ -3,32 +3,36 @@ INCLUDE=include
 OBJDIR=obj
 SRC=src
 
-FLAGS=-O3 -Wall -Wextra -march=native -I$(INCLUDE)
+FLAGS=-O3 -I$(INCLUDE)
+OPT=-Wall -Wextra -march=native
 OPENMP=-fopenmp
 CBLAS=-DCBLAS -lopenblas
-CUDA=-DCUDA -lcublas -lcudart
+CUDA=-DCUDA -lcublas -lcudart -lmpi -L/leonardo/prod/opt/libraries/openmpi/4.1.6/nvhpc--23.11/lib
 
 OBJECTS=$(patsubst $(SRC)/%.c, $(OBJDIR)/%.o, $(wildcard $(SRC)/*.c))
 
-FLAGS+=$(OPENMP)
-#FLAGS+=-DDEBUG
-FLAGS+=-DPRINTTIME
-#FLAGS+=-DPRINTMATRIX
+FLAGS+=-DDEBUG
+#FLAGS+=-DPRINTTIME
+FLAGS+=-DPRINTMATRIX
+
+base: FLAGS+=$(OPT) $(OPENMP)
+base: main
+	@$(MAKE) main --no-print-directory
+
+blas: FLAGS+=$(CBLAS) $(OPT) $(OPENMP)
+blas: main
+	@$(MAKE) main --no-print-directory
+
+cuda: FLAGS+=$(CUDA)
+cuda: CC=nvcc
+cuda: main
+	@$(MAKE) main --no-print-directory
 
 main: $(OBJECTS) main.c
 	@$(CC) $(FLAGS) $^ -o $@
 $(OBJDIR)/%.o: $(SRC)/%.c
 	@mkdir -p $(OBJDIR)
 	@$(CC) $(FLAGS) -c $^ -o $@
-
-blas: FLAGS+=$(CBLAS)
-blas: main
-	@$(MAKE) main --no-print-directory
-
-cuda: FLAGS+=$(CUDA)
-cuda: main
-	@$(MAKE) main --no-print-directory
-
 
 clean:
 	@rm -rf main main.o
