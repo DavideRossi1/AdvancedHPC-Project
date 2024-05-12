@@ -20,6 +20,7 @@ export OMP_PROC_BIND=close
 
 make clean
 make cuda
+echo "Init;initComm;gather;resAlloc;dGemm;place;mult;total" >> gpu20000.csv
 for nNodes in 1 2 4 8 16
 do
         for i in {1..5}

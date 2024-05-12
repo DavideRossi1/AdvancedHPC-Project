@@ -18,6 +18,7 @@ export OMP_PROC_BIND=close
 
 make clean
 make
+echo "Init;initComm;gather;resAlloc;dGemm;place;mult;total" >> basic5000.csv
 for nNodes in 1 2 4 8 16
 do
 	for i in {1..10}
@@ -27,6 +28,7 @@ done
 
 make clean
 make blas
+echo "Init;initComm;gather;resAlloc;dGemm;place;mult;total" >> blas5000.csv
 for nNodes in 1 2 4 8 16
 do
         for i in {1..10}

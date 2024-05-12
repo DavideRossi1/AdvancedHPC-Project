@@ -1,6 +1,7 @@
 #include <string.h>
 #include <omp.h>
 #include <stdio.h>
+#include <mpi.h>
 #ifdef CBLAS
   #include <cblas.h>
 #endif
@@ -29,9 +30,10 @@ void placeBlockInMatrix(double *block, double *matrix, uint nBlockRows, uint nBl
       matrix[i * nMatrixCols + j + startingCol] = block[i * nBlockCols + j];
 }
 
-void matMul(double *A, double *B, double *C, uint nRowsA, uint nColsARowsB, uint nColsB, uint startingCol) 
+void matMul(double *A, double *B, double *C, uint nRowsA, uint nColsARowsB, uint nColsB, uint startingCol, struct Timings* timings) 
 {
-  #ifdef CUDA    
+  #ifdef CUDA
+    timings->start = MPI_Wtime();
     double* B_dev;
     cudaMalloc((void**) &B_dev, nColsARowsB*nColsB*sizeof(double));
     cudaMemcpy(B_dev, B, nColsARowsB*nColsB*sizeof(double), cudaMemcpyHostToDevice);
@@ -44,22 +46,33 @@ void matMul(double *A, double *B, double *C, uint nRowsA, uint nColsARowsB, uint
     cublasCreate(&handle);
     const double alpha = 1.0;
     const double beta = 0.0;
+    timings->resAllocTime += MPI_Wtime() - timings->start;
+    timings->start = MPI_Wtime();
     cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, nColsB, nRowsA,
         nColsARowsB, &alpha, B_dev, nColsB, A, nColsARowsB, &beta, myCBlock_dev, nColsB);
+    timings->dgemmTime += MPI_Wtime() - timings->start;
+    timings->start = MPI_Wtime();
     cudaMemcpy(myCBlock, myCBlock_dev, nRowsA*nColsB*sizeof(double), cudaMemcpyDeviceToHost);
     placeBlockInMatrix(myCBlock, C, nRowsA, nColsB, nColsARowsB, startingCol);
     free(myCBlock);
     cudaFree(B_dev);
     cudaFree(myCBlock_dev);
     cublasDestroy(handle);
+    timings->placeTime += MPI_Wtime() - timings->start;
   #else
   #ifdef CBLAS
+    timings->start = MPI_Wtime();
     double *myCBlock = (double *)malloc(nRowsA * nColsB * sizeof(double));
     memset(myCBlock, 0, nRowsA * nColsB * sizeof(double));
+    timings->resAllocTime += MPI_Wtime() - timings->start;
+    timings->start = MPI_Wtime();
     cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, nRowsA, nColsB,
                 nColsARowsB, 1.0, A, nColsARowsB, B, nColsB, 0.0, myCBlock,nColsB);
+    timings->dgemmTime += MPI_Wtime() - timings->start;
+    timings->start = MPI_Wtime();
     placeBlockInMatrix(myCBlock, C, nRowsA, nColsB, nColsARowsB, startingCol);
     free(myCBlock);
+    timings->placeTime += MPI_Wtime() - timings->start;
   #else
     for (uint i = 0; i < nRowsA; i++)
       for (uint j = 0; j < nColsB; j++)

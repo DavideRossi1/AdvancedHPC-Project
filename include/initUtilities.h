@@ -1,3 +1,4 @@
+#pragma once
 #include <stdlib.h>
 
 void initOrder(double* matrix, uint myRank, uint N, uint workSize, uint NPEs);
