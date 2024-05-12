@@ -3,26 +3,27 @@
 #SBATCH --job-name="gpu-test"
 #SBATCH --account ict24_dssc_gpu
 #SBATCH --partition=boost_usr_prod
-#SBATCH --nodes=2
-#SBATCH --exclusive
+#SBATCH --nodes=64
+#SBATCH --ntasks=256                  
+#SBATCH --ntasks-per-node=4          
+#SBATCH --cpus-per-task=8            
 #SBATCH --gres=gpu:4
-#SBATCH --time=04:00:00
+#SBATCH --mem=480G
+#SBATCH --time=00:15:00
 
-module load openmpi/4.1.6--gcc--12.2.0
-module load cuda
+module load openmpi/4.1.6--nvhpc--23.11
 
 echo "Running on $SLURM_NNODES nodes"
-
-make clean
 
 export OMP_PLACES=cores
 export OMP_PROC_BIND=close
 
+make clean
 make cuda
 for nNodes in 1 2 4 8 16
 do
-        for i in {1..10}
-                do mpirun -np $nNodes ./main 5000 >> blas5000.csv
+        for i in {1..5}
+                do mpirun -np $nNodes ./main 20000 >> gpu20000.csv
         done
 done
 

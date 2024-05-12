@@ -29,16 +29,13 @@ void initAndPrintMatrices(double* myA, double* myB, double* myC, uint N, uint my
     #ifdef DEBUG
         initID(myA, myRank, N, myWorkSize, NPEs);
         initOrder(myB, myRank, N, myWorkSize, NPEs);
-    #else
-        initRandom(myA, N*myWorkSize);
-        initRandom(myB, N*myWorkSize);
-    #endif
-    MPI_Barrier(MPI_COMM_WORLD);
-    #ifdef PRINTMATRIX
         printMatrixDistributed(myA, myWorkSize, N, myRank, NPEs);
         printf("\n");
         printMatrixDistributed(myB, myWorkSize, N, myRank, NPEs);
         printf("\n");
+    #else
+        initRandom(myA, N*myWorkSize);
+        initRandom(myB, N*myWorkSize);
     #endif
 }
 
@@ -51,12 +48,14 @@ int main(int argc, char** argv)
     MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
     MPI_Comm_size(MPI_COMM_WORLD, &NPEs);
     #ifdef PRINTTIME
-	if(!myRank) printf("Init;Comm;Mult\n");
+	    if(!myRank) printf("Init;Comm;Mult\n");
     #endif
     #ifdef CUDA
         int NGPUS;
         cudaGetDeviceCount(&NGPUS);
-        if(!myRank) printf("Running with %d GPUs\n",NGPUS);
+        #ifdef DEBUG
+            if(!myRank) printf("Running with %d GPUs\n",NGPUS);
+        #endif
         cudaSetDevice(myRank % NGPUS);
     #endif
     double maxInitTime, maxCommTime, maxMultTime;
@@ -84,10 +83,11 @@ int main(int argc, char** argv)
     double* myBblock;
     double* columnB;
     uint nColumnsBblock, startPoint;
+
     #ifdef CUDA
-        double *myA_dev;
-        cudaMalloc((void **) &myA_dev, myWorkSize*N*sizeof(double));
-        cudaMemcpy(myA_dev, myA, myWorkSize*N*sizeof(double), cudaMemcpyHostToDevice);
+        double* A_dev;
+        cudaMalloc((void**) &A_dev, myWorkSize*N*sizeof(double));
+        cudaMemcpy(A_dev, myA, myWorkSize*N*sizeof(double), cudaMemcpyHostToDevice);
     #endif
     for(uint i = 0; i < (uint)NPEs; i++)
     {
@@ -102,13 +102,17 @@ int main(int argc, char** argv)
         MPI_Allgatherv(myBblock, myWorkSize*nColumnsBblock, MPI_DOUBLE, columnB, recvcounts, displs, MPI_DOUBLE, MPI_COMM_WORLD);
         commTime += MPI_Wtime() - start;
         start = MPI_Wtime();
-        matMul(myA, columnB, myC, myWorkSize, N, nColumnsBblock, startPoint);
+        #ifdef CUDA
+            matMul(A_dev, columnB, myC, myWorkSize, N, nColumnsBblock, startPoint);
+        #else
+            matMul(myA, columnB, myC, myWorkSize, N, nColumnsBblock, startPoint);
+        #endif
         multTime += MPI_Wtime() - start;
         free(myBblock);
         free(columnB);
     } 
     MPI_Barrier(MPI_COMM_WORLD);
-    #ifdef PRINTMATRIX
+    #ifdef DEBUG
         printMatrixDistributed(myC, myWorkSize, N, myRank, NPEs);
     #endif
     MPI_Reduce(&commTime, &maxCommTime, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
@@ -118,6 +122,9 @@ int main(int argc, char** argv)
             printf("%f;", maxCommTime);
             printf("%f\n", maxMultTime);
         }
+    #endif
+    #ifdef CUDA
+        cudaFree(A_dev);
     #endif
     free(myA);
     free(myB);

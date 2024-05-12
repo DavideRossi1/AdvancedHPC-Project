@@ -2,6 +2,8 @@ CC=mpicc
 INCLUDE=include
 OBJDIR=obj
 SRC=src
+FUNC=base
+PRINTDIR=--no-print-directory
 
 FLAGS=-O3 -I$(INCLUDE)
 OPT=-Wall -Wextra -march=native
@@ -11,22 +13,18 @@ CUDA=-DCUDA -lcublas -lcudart -lmpi -L/leonardo/prod/opt/libraries/openmpi/4.1.6
 
 OBJECTS=$(patsubst $(SRC)/%.c, $(OBJDIR)/%.o, $(wildcard $(SRC)/*.c))
 
-FLAGS+=-DDEBUG
-#FLAGS+=-DPRINTTIME
-FLAGS+=-DPRINTMATRIX
+#FLAGS+=-DDEBUG
+FLAGS+=-DPRINTTIME
 
 base: FLAGS+=$(OPT) $(OPENMP)
 base: main
-	@$(MAKE) main --no-print-directory
 
 blas: FLAGS+=$(CBLAS) $(OPT) $(OPENMP)
 blas: main
-	@$(MAKE) main --no-print-directory
 
 cuda: FLAGS+=$(CUDA)
 cuda: CC=nvcc
 cuda: main
-	@$(MAKE) main --no-print-directory
 
 main: $(OBJECTS) main.c
 	@$(CC) $(FLAGS) $^ -o $@
@@ -39,17 +37,21 @@ clean:
 	@rm -rf $(OBJDIR)
 
 git:
-	@$(MAKE) clean
+	@$(MAKE) clean $(PRINTDIR)
 	@git add .
 	@git commit -m "$(MS)"
 	@git push
 
-runBlas:
-	@$(MAKE) clean
-	@$(MAKE) blas
-	@mpirun -np $(NP) ./main $(SZ)
+runBase: FUNC=base
+runBase: run
 
-runCuda:
-	@$(MAKE) clean
-	@$(MAKE) cuda
+runBlas: FUNC=blas
+runBlas: run
+
+runCuda: FUNC=cuda
+runCuda: run
+	
+run:
+	@$(MAKE) clean $(PRINTDIR)
+	@$(MAKE) $(FUNC) $(PRINTDIR)
 	@mpirun -np $(NP) ./main $(SZ)

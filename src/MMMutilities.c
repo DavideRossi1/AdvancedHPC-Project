@@ -1,5 +1,6 @@
 #include <string.h>
 #include <omp.h>
+#include <stdio.h>
 #ifdef CBLAS
   #include <cblas.h>
 #endif
@@ -30,29 +31,23 @@ void placeBlockInMatrix(double *block, double *matrix, uint nBlockRows, uint nBl
 
 void matMul(double *A, double *B, double *C, uint nRowsA, uint nColsARowsB, uint nColsB, uint startingCol) 
 {
-  #ifdef CUDA
-    cublasHandle_t handle;
-    cublasCreate(&handle);
-    #ifdef DEBUG
-      printf("\nB:\n");
-      printMatrix(B,nColsARowsB, nColsB);
-    #endif
+  #ifdef CUDA    
     double* B_dev;
-    cudaMalloc((void**)&B_dev, nColsARowsB*nColsB*sizeof(double));
+    cudaMalloc((void**) &B_dev, nColsARowsB*nColsB*sizeof(double));
     cudaMemcpy(B_dev, B, nColsARowsB*nColsB*sizeof(double), cudaMemcpyHostToDevice);
     
     double* myCBlock_dev;
     cudaMalloc((void**)&myCBlock_dev, nRowsA*nColsB*sizeof(double));
+    double *myCBlock = (double*)malloc(nRowsA*nColsB*sizeof(double));
     
-    double *myCBlock = (double *)malloc(nRowsA * nColsB * sizeof(double));
-    memset(myCBlock, 0, nRowsA * nColsB * sizeof(double));
-    
+    cublasHandle_t handle;
+    cublasCreate(&handle);
     const double alpha = 1.0;
     const double beta = 0.0;
     cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, nColsB, nRowsA,
         nColsARowsB, &alpha, B_dev, nColsB, A, nColsARowsB, &beta, myCBlock_dev, nColsB);
-    cudaMemcpy(myCBlock, myCBlock_dev, nRowsA*nColsB, cudaMemcpyDeviceToHost);
-    placeBlockInMatrix(myCBlock, C, nColsB, nRowsA, nColsARowsB, startingCol);
+    cudaMemcpy(myCBlock, myCBlock_dev, nRowsA*nColsB*sizeof(double), cudaMemcpyDeviceToHost);
+    placeBlockInMatrix(myCBlock, C, nRowsA, nColsB, nColsARowsB, startingCol);
     free(myCBlock);
     cudaFree(B_dev);
     cudaFree(myCBlock_dev);
@@ -62,7 +57,7 @@ void matMul(double *A, double *B, double *C, uint nRowsA, uint nColsARowsB, uint
     double *myCBlock = (double *)malloc(nRowsA * nColsB * sizeof(double));
     memset(myCBlock, 0, nRowsA * nColsB * sizeof(double));
     cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, nRowsA, nColsB,
-                nColsARowsB, 1.0, A, nColsARowsB, B, nColsB, 1.0, myCBlock,nColsB);
+                nColsARowsB, 1.0, A, nColsARowsB, B, nColsB, 0.0, myCBlock,nColsB);
     placeBlockInMatrix(myCBlock, C, nRowsA, nColsB, nColsARowsB, startingCol);
     free(myCBlock);
   #else
