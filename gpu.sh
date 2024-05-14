@@ -20,11 +20,11 @@ export OMP_PROC_BIND=close
 
 make clean
 make cuda
-echo "Init;initComm;gather;resAlloc;dGemm;place;mult;total" >> gpu20000.csv
-for nNodes in 1 2 4 8 16
+echo "Init;initComm;gather;resAlloc;dGemm;place;mult;total" >> gpu80000.csv
+for nNodes in 1 2 4 8 16 32 64
 do
         for i in {1..5}
-                do mpirun -np $nNodes ./main 20000 >> gpu20000.csv
+                do mpirun -np $nNodes ./main 80000 >> gpu80000.csv
         done
 done
 

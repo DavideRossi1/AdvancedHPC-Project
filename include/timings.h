@@ -12,4 +12,4 @@ struct Timings{
     double start;
 };
 
-void printTimings(struct Timings* t, int myRank);
+void printTimings(struct Timings* t, int myRank, int NPEs);

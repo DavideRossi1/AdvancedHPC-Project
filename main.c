@@ -118,7 +118,7 @@ int main(int argc, char** argv)
     free(displs);
     timings.totalTime = MPI_Wtime() - timings.programStart;
     #ifdef PRINTTIME
-        printTimings(&timings, myRank);
+        printTimings(&timings, myRank, NPEs);
     #endif
     MPI_Finalize();
     return 0;
