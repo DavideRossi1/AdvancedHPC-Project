@@ -12,32 +12,9 @@
 #include "include/initUtilities.h"
 #include "include/MMMutilities.h"
 
-void buildRecvCountsAndDispls(int* recvcounts, int* displs, uint NPEs, uint N, uint colID)
-{
-    uint nCols = N/NPEs + (colID < N % NPEs ? 1 : 0);
-    for(uint j=0; j<NPEs; j++){
-        uint nRows= N/NPEs + (j < N % NPEs ? 1 : 0);
-        recvcounts[j] = nRows*nCols;
-        displs[j] = j > 0 ? displs[j-1] + recvcounts[j-1] : 0;
-    }
-}
+void buildRecvCountsAndDispls(int* recvcounts, int* displs, uint NPEs, uint N, uint colID);
 
-void initAndPrintMatrices(double* myA, double* myB, double* myC, uint N, uint myWorkSize, int myRank, int NPEs)
-{
-    memset(myC, 0, myWorkSize*N*sizeof(double));
-    #ifdef DEBUG
-        initID(myA, myRank, N, myWorkSize, NPEs);
-        initOrder(myB, myRank, N, myWorkSize, NPEs);
-        printMatrixDistributed(myA, myWorkSize, N, myRank, NPEs);
-        printf("\n");
-        printMatrixDistributed(myB, myWorkSize, N, myRank, NPEs);
-        printf("\n");
-    #else
-        initRandom(myA, N*myWorkSize);
-        initRandom(myB, N*myWorkSize);
-    #endif
-}
-
+void initAndPrintMatrices(double* myA, double* myB, double* myC, uint N, uint myWorkSize, int myRank, int NPEs);
 
 int main(int argc, char** argv)
 {
@@ -46,7 +23,7 @@ int main(int argc, char** argv)
     MPI_Init_thread(&argc, &argv,MPI_THREAD_MULTIPLE,&provided);
     MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
     MPI_Comm_size(MPI_COMM_WORLD, &NPEs);
-    struct Timings timings = {0, 0, 0, 0, 0, 0, 0, 0}; 
+    struct Timings timings = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; 
     timings.programStart = MPI_Wtime();
     
     #ifdef CUDA
@@ -122,4 +99,30 @@ int main(int argc, char** argv)
     #endif
     MPI_Finalize();
     return 0;
+}
+
+void buildRecvCountsAndDispls(int* recvcounts, int* displs, uint NPEs, uint N, uint colID)
+{
+    uint nCols = N/NPEs + (colID < N % NPEs ? 1 : 0);
+    for(uint j=0; j<NPEs; j++){
+        uint nRows= N/NPEs + (j < N % NPEs ? 1 : 0);
+        recvcounts[j] = nRows*nCols;
+        displs[j] = j > 0 ? displs[j-1] + recvcounts[j-1] : 0;
+    }
+}
+
+void initAndPrintMatrices(double* myA, double* myB, double* myC, uint N, uint myWorkSize, int myRank, int NPEs)
+{
+    memset(myC, 0, myWorkSize*N*sizeof(double));
+    #ifdef DEBUG
+        initID(myA, myRank, N, myWorkSize, NPEs);
+        initOrder(myB, myRank, N, myWorkSize, NPEs);
+        printMatrixDistributed(myA, myWorkSize, N, myRank, NPEs);
+        if(!myRank) printf("\n");
+        printMatrixDistributed(myB, myWorkSize, N, myRank, NPEs);
+        if(!myRank) printf("\n");
+    #else
+        initRandom(myA, N*myWorkSize);
+        initRandom(myB, N*myWorkSize);
+    #endif
 }
