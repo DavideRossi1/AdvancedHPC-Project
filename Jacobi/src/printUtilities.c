@@ -45,7 +45,7 @@ void printMatrixDistributed(double *matrix, uint nRows, uint nCols, uint myRank,
   }
 }
 
-void save_gnuplot( double *M, size_t dim, uint myRank, uint NPEs, uint myWorkSize, MPI_Status status)
+void save_gnuplot( double *M, size_t dim, uint myRank, uint NPEs, uint myWorkSize)
 {
   const double h = 0.1;
   MPI_File file;
@@ -57,7 +57,7 @@ void save_gnuplot( double *M, size_t dim, uint myRank, uint NPEs, uint myWorkSiz
   for (size_t i = start; i < end; i++){
     for (size_t j = 0; j < dim; j++){
       double buffer[3] = {h*j, -h*i, M[i*dim+j]};
-      MPI_File_write_at(file, of + (i*dim+j)*3*sizeof(double), buffer, 3, MPI_DOUBLE, &status);
+      MPI_File_write_at(file, of + (i*dim+j)*3*sizeof(double), buffer, 3, MPI_DOUBLE, MPI_STATUS_IGNORE);
     }
   }
   MPI_File_close(&file);

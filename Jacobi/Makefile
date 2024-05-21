@@ -39,5 +39,5 @@ git:
 plot:
 	@gnuplot -p plot.plt
 
-.PHONY: clean plot all
+.PHONY: clean plot git
 
