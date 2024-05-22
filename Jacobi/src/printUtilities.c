@@ -4,44 +4,46 @@
 
 #include "../include/printUtilities.h"
 
-void printMatrix(double *matrix, uint nRows, uint nCols, uint myRank, uint NPEs) {
-  const char* format = "%.2f ";
-  size_t bufferSize = nRows*(nCols*7 + 2); // 7 is the number of characters in the format string ('100.00 '), 2 is for the newline and null terminator
-  char* buffer = (char*)malloc(bufferSize*sizeof(char));
+void convertMatrix(double *matrix, char* buffer, uint nRows, uint nCols) {
+  const char* format = "%.3f\t";
   // build a string that contains the matrix
   int offset = 0;
-  uint start = myRank == 0 ? 0 : 1;
-  uint end = myRank == NPEs-1 ? nRows : nRows-1;
-  for (uint i = start; i < end; i++) {  // skip the first and last rows, which are used to exchange messages with the other procs
+  const size_t bufferSize = nRows*(nCols*7 + 2);
+  for (uint i = 0; i < nRows; i++) {  // skip the first and last rows, which are used to exchange messages with the other procs
     for (uint j = 0; j < nCols; j++){
       offset += snprintf(buffer+offset, bufferSize-offset, format, matrix[i * nCols + j]);
     }
     offset += snprintf(buffer+offset, bufferSize-offset, "\n");
   }
-  printf("%s", buffer);
-  free(buffer);
 }
 
 void printMatrixDistributed(double *matrix, uint nRows, uint nCols, uint myRank, uint NPEs) 
 {
   if (myRank) {
-    MPI_Send(matrix, nRows * nCols, MPI_DOUBLE, 0, myRank, MPI_COMM_WORLD);
+    if (myRank == NPEs-1) nRows++;
+    MPI_Send(&matrix[nCols], nRows*nCols, MPI_DOUBLE, 0, myRank, MPI_COMM_WORLD);
   } 
   else {
-    double *buf = (double *)malloc(nRows * nCols * sizeof(double));
-    printMatrix(matrix, nRows, nCols, myRank, NPEs);
-    #ifdef DEBUG
-      printf("done printing rank %d\n", myRank);
-    #endif
+    int offset = 0;
+    size_t rowCharSize = nCols*7 + 2; // 7 is the number of characters in the format string ('90.000\t'), 1 is for the newline
+    // Note: we actually also have a 100.000\t, but it will be a single value in the matrix, so the space needed for it is balanced
+    // by the zeroes in the first row
+    int nRowsPE1 = nRows + (NPEs == 1 ? 2 : 1);
+    char* myPart =       (char*)malloc(nRowsPE1 * rowCharSize * sizeof(char));
+    char *entireMatrix = (char*)malloc(nCols * rowCharSize * sizeof(char)); // the entire matrix is nCols*nCols big
+    convertMatrix(matrix, myPart, nRowsPE1, nCols);
+    offset += snprintf(entireMatrix + offset, nRowsPE1 * rowCharSize - offset, "%s", myPart);
+    double *buf = (double *)malloc((nRows+1) * nCols * sizeof(double)); // +1 because the last PE has an extra row
     for (uint i = 1; i < NPEs; i++) {
-      uint nLocSender = (nCols-2)/NPEs + (i < (nCols-2)%NPEs ? 3 : 2);
-      MPI_Recv(buf, nLocSender * nCols, MPI_DOUBLE, i, i, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-      printMatrix(buf, nLocSender, nCols, i, NPEs);
-      #ifdef DEBUG
-        printf("done printing rank %d\n", i);
-      #endif
+      uint nRowsSender = (nCols-2)/NPEs + (i < (nCols-2)%NPEs ? 1 : 0) + (i == NPEs-1 ? 1 : 0);
+      MPI_Recv(buf, nRowsSender * nCols, MPI_DOUBLE, i, i, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      convertMatrix(buf, myPart, nRowsSender, nCols);
+      offset += snprintf(entireMatrix+offset, nRowsSender*rowCharSize-offset, "%s", myPart);
     }
+    printf("%s", entireMatrix);
     free(buf);
+    free(myPart);
+    free(entireMatrix);
   }
 }
 

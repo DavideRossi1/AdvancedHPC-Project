@@ -11,8 +11,8 @@
   #include <cuda_runtime.h>
 #endif
 
-#include "../include/MMMutilities.h"
-#include "../include/printUtilities.h"
+#include "MMMutilities.h"
+#include "printUtilities.h"
 
 void readBlockFromMatrix(double *block, double *matrix, uint nBlockRows, uint nBlockCols, uint nMatrixCols, uint startingCol) 
 {

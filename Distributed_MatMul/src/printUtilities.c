@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <mpi.h>
 
-#include "../include/printUtilities.h"
+#include "printUtilities.h"
 
 void printMatrix(double *matrix, uint nRows, uint nCols) {
   #ifdef DEBUG

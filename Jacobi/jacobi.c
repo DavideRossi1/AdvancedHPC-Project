@@ -1,5 +1,4 @@
 #include <mpi.h>
-#include <mpi_proto.h>
 #include <omp.h>
 #include <stddef.h>
 #include <string.h>
@@ -10,12 +9,10 @@
   #include <accel.h>
 #endif
 
-#include "include/printUtilities.h"
-#include "include/initUtilities.h"
-#include "include/timings.h"
-
-// evolve Jacobi
-void evolve( double * matrix, double *matrix_new, size_t nRows, size_t nCols, int myRank, int NPEs);
+#include "printUtilities.h"
+#include "initUtilities.h"
+#include "evolveUtilities.h"
+#include "timings.h"
 
 int main(int argc, char* argv[])
 {  
@@ -30,14 +27,13 @@ int main(int argc, char* argv[])
   MPI_Comm_size(MPI_COMM_WORLD, &NPEs);  
   #ifdef _OPENACC
     const int ngpu = acc_get_num_devices(acc_device_nvidia);
-    const int gpuid = rank % ngpu;
+    const int gpuid = myRank % ngpu;
     acc_set_device_num(gpuid, acc_device_nvidia);
     acc_init(acc_device_nvidia);
-    if( !rank ) fprintf(stdout, "NUM GPU: %d\n", ngpu);
-    fprintf(stdout, "GPU ID: %d, PID: %d\n", gpuid, rank);
+    if( !myRank ) fprintf(stdout, "NUM GPU: %d\n", ngpu);
+    fprintf(stdout, "GPU ID: %d, PID: %d\n", gpuid, myRank);
     fflush( stdout );
   #endif
-  
   struct Timings timings = { 0, 0, 0, 0, 0, 0};
   MPI_Barrier(MPI_COMM_WORLD);
   timings.programStart = MPI_Wtime();
@@ -53,25 +49,26 @@ int main(int argc, char* argv[])
   double *matrix     = ( double* )malloc( my_byte_dim ); 
   double *matrix_new = ( double* )malloc( my_byte_dim );
   double *tmp_matrix;
-  
-  // initialize matrix
+  #pragma acc enter data create(matrix[:myWorkSize*dimWithBord],matrix_new[:myWorkSize*dimWithBord])
   MPI_Barrier(MPI_COMM_WORLD);
   timings.start = MPI_Wtime();
+  printf("par done\n");
+#pragma acc data copy(myRank, NPEs, ngpu, gpuid, dim, iterations, dimWithBord, workSize, workSizeRemainder, myWorkSize, timings)
+{
 
-  #pragma acc enter data create(matrix[:myWorkSize*dimWithBord], matrix_new[:myWorkSize*dimWithBord])
-  {
-  memset( matrix, 0, my_byte_dim );
-  memset( matrix_new, 0, my_byte_dim );
   init( matrix, matrix_new, myWorkSize, dimWithBord, myRank, NPEs);
   MPI_Barrier(MPI_COMM_WORLD);
   #ifdef PRINTMATRIX
+    #pragma acc update self(matrix[:myWorkSize*dimWithBord])
     printMatrixDistributed(matrix, myWorkSize, dimWithBord, myRank, NPEs);
     MPI_Barrier(MPI_COMM_WORLD);
     if(!myRank) printf("\n");
+    #pragma acc update self(matrix_new[:myWorkSize*dimWithBord])
     printMatrixDistributed(matrix_new, myWorkSize, dimWithBord, myRank, NPEs);
     MPI_Barrier(MPI_COMM_WORLD);
   #endif
   timings.initTime = MPI_Wtime() - timings.start;
+  if(!myRank) printf("init done\n");
   // start algorithm
   timings.start = MPI_Wtime();
   for(size_t it = 0; it < iterations; ++it ){
@@ -79,6 +76,7 @@ int main(int argc, char* argv[])
     MPI_Barrier(MPI_COMM_WORLD);
     #ifdef PRINTMATRIX
       printMatrixDistributed(matrix, myWorkSize, dimWithBord, myRank, NPEs);
+      if(!myRank) printf("\n");
       MPI_Barrier(MPI_COMM_WORLD);
     #endif
     tmp_matrix = matrix;
@@ -93,39 +91,18 @@ int main(int argc, char* argv[])
   save_gnuplot( matrix, dimWithBord, myRank, NPEs, myWorkSize);
   MPI_Barrier(MPI_COMM_WORLD);
   timings.saveTime = MPI_Wtime() - timings.start;
-  }
+
   #ifdef CONVERT
     convertBinToTxt();
   #endif
   free( matrix );
   free( matrix_new );
   timings.totalTime = MPI_Wtime() - timings.programStart;
+
   #ifdef PRINTTIME
     printTimings(&timings, myRank, NPEs);
   #endif
+}
   MPI_Finalize();
   return 0;
-}
-
-
-void evolve( double* matrix, double* matrix_new, size_t nRows, size_t nCols, int myRank, int NPEs)
-{
-  //This will be a row dominant program.
-#pragma omp parallel for collapse(2)
-  for(size_t i = 1; i < nRows-1; ++i )
-    for(size_t j = 1; j < nCols-1; ++j ) {
-      size_t currentEl = i*nCols + j;
-      matrix_new[currentEl] = 0.25*( matrix[currentEl-nCols] + matrix[currentEl+1] + 
-                                     matrix[currentEl+nCols] + matrix[currentEl-1] );
-    }
-  MPI_Barrier(MPI_COMM_WORLD);
-  int prev = myRank ? myRank-1 : MPI_PROC_NULL;
-  int next = myRank != NPEs-1 ? myRank+1 : MPI_PROC_NULL;
-  #pragma omp master
-  {
-    MPI_Sendrecv(&matrix[nCols], nCols, MPI_DOUBLE, prev, 1, 
-                 &matrix[0],     nCols, MPI_DOUBLE, prev, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    MPI_Sendrecv(&matrix[(nRows-2)*nCols], nCols, MPI_DOUBLE, next, 0, 
-                 &matrix[(nRows-1)*nCols], nCols, MPI_DOUBLE, next, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-  }
 }

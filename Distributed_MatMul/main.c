@@ -8,9 +8,9 @@
     #include <cublas_v2.h>
 #endif
 
-#include "include/printUtilities.h"
-#include "include/initUtilities.h"
-#include "include/MMMutilities.h"
+#include "printUtilities.h"
+#include "initUtilities.h"
+#include "MMMutilities.h"
 
 void buildRecvCountsAndDispls(int* recvcounts, int* displs, uint NPEs, uint N, uint colID);
 

@@ -1,7 +1,7 @@
 #include <string.h>
 #include <omp.h>
 
-#include "../include/initUtilities.h"
+#include "initUtilities.h"
 
 void initOrder(double* matrix, uint myRank, uint N, uint workSize, uint NPEs)
 {

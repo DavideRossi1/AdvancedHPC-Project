@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <mpi.h>
 
-void printMatrix(double *matrix, uint nRows, uint nCols, uint myRank, uint NPEs);
+void printMatrix(double *matrix, char* buffer, uint nRows, uint nCols, uint myRank, uint NPEs);
 
 void printMatrixDistributed(double *matrix, uint nRows, uint nCols, uint myRank, uint NPEs);
 
