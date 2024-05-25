@@ -2,7 +2,7 @@
 #include <string.h>
 #include <mpi.h>
 
-#include "../include/printUtilities.h"
+#include "printUtilities.h"
 
 void convertMatrix(double *matrix, char* buffer, uint nRows, uint nCols) {
   const char* format = "%.3f\t";

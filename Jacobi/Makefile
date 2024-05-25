@@ -16,10 +16,10 @@ OBJECTS=$(patsubst $(SRC)/%.c, $(OBJDIR)/%.o, $(wildcard $(SRC)/*.c))
 
 #FLAGS+=-DDEBUG
 FLAGS+=-DCONVERT
-#FLAGS+=-DPRINTTIME
+FLAGS+=-DPRINTTIME
 FLAGS+=-DPRINTMATRIX
 FLAGS+=$(OPENMP) $(OPT)
-FLAGS+=-acc -Minfo=all
+#FLAGS+=-acc -Minfo=all
 
 jacobi.x: $(OBJECTS) jacobi.c
 	@$(CC) $(FLAGS) $^ -o $@

@@ -5,7 +5,7 @@
 inline void init(double* matrix, double* matrix_new, size_t nRows, size_t nCols, uint myRank, uint NPEs)
 {
 #pragma acc parallel loop present(matrix[:nRows*nCols], matrix_new[:nRows*nCols])
-  for(int k = 0; k< nRows*nCols; k++){ 
+  for(size_t k = 0; k< nRows*nCols; k++){ 
     matrix[k] = 0.0;
     matrix_new[k] = 0.0;
   }
