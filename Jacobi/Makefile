@@ -7,7 +7,7 @@ dim = 10
 it  = 100
 
 FLAGS=-O3 -I$(INCLUDE)
-OPT=-Wall -Wextra -march=native
+OPT=-Wall -Wextra -march=native -Wno-unknown-pragmas
 OPENMP=-fopenmp
 CBLAS=-DCBLAS -lopenblas
 CUDA=-DCUDA -lcublas -lcudart -lmpi -L/leonardo/prod/opt/libraries/openmpi/4.1.6/nvhpc--23.11/lib
@@ -15,11 +15,11 @@ CUDA=-DCUDA -lcublas -lcudart -lmpi -L/leonardo/prod/opt/libraries/openmpi/4.1.6
 OBJECTS=$(patsubst $(SRC)/%.c, $(OBJDIR)/%.o, $(wildcard $(SRC)/*.c))
 
 #FLAGS+=-DDEBUG
-#FLAGS+=-DCONVERT
+FLAGS+=-DCONVERT
 FLAGS+=-DPRINTTIME
-FLAGS+=-DPRINTMATRIX
+#FLAGS+=-DPRINTMATRIX
 FLAGS+=$(OPENMP) $(OPT)
-FLAGS+=-acc -Minfo=all
+#FLAGS+=-acc -Minfo=all
 
 jacobi.x: $(OBJECTS) jacobi.c
 	@$(CC) $(FLAGS) $^ -o $@

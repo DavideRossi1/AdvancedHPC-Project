@@ -1,8 +1,10 @@
-#include <mpi.h>
 #include <stdio.h>
+#include <mpi.h>
+
 #include "initUtilities.h"
 
-inline void init(double* matrix, double* matrix_new, size_t nRows, size_t nCols, uint myRank, uint NPEs)
+
+inline void init(double* matrix, double* matrix_new, size_t nRows, size_t nCols, uint myRank, uint NPEs, int prev, int next)
 {
 #pragma acc parallel loop present(matrix[:nRows*nCols], matrix_new[:nRows*nCols])
   for(size_t k = 0; k< nRows*nCols; k++){ 
@@ -37,8 +39,6 @@ inline void init(double* matrix, double* matrix_new, size_t nRows, size_t nCols,
   }
   MPI_Barrier(MPI_COMM_WORLD);
   if (NPEs > 1) {
-    int prev = myRank ? myRank-1 : MPI_PROC_NULL;
-    int next = myRank != NPEs-1 ? myRank+1 : MPI_PROC_NULL;
     MPI_Sendrecv(&matrix[nCols], nCols, MPI_DOUBLE, prev, 1, 
                  &matrix[0],     nCols, MPI_DOUBLE, prev, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     MPI_Sendrecv(&matrix_new[nCols], nCols, MPI_DOUBLE, prev, 2, 

@@ -1,5 +1,7 @@
 #include <mpi.h>
+
 #include "evolveUtilities.h"
+
 
 inline void evolve( double* matrix, double* matrix_new, size_t nRows, size_t nCols, int prev, int next)
 {

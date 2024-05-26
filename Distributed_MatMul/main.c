@@ -1,8 +1,8 @@
-#include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
+#include <mpi.h>
 #ifdef CUDA
     #include <cuda_runtime.h>
     #include <cublas_v2.h>
@@ -18,6 +18,10 @@ void initAndPrintMatrices(double* myA, double* myB, double* myC, uint N, uint my
 
 int main(int argc, char** argv)
 {
+    if (argc != 2) {
+        fprintf(stderr, "Usage: ./main <N>\n");
+        return 1;
+    }
     const uint N = atoi(argv[1]);
     int myRank, NPEs,provided;
     MPI_Init_thread(&argc, &argv,MPI_THREAD_MULTIPLE,&provided);
@@ -83,7 +87,7 @@ int main(int argc, char** argv)
     } 
     MPI_Barrier(MPI_COMM_WORLD);
     #ifdef DEBUG
-        printMatrixDistributed(myC, myWorkSize, N, myRank, NPEs);
+        printMatrixThrSafe(myC, myWorkSize, N, myRank, NPEs);
     #endif
     #ifdef CUDA
         cudaFree(A_dev);
@@ -117,10 +121,8 @@ void initAndPrintMatrices(double* myA, double* myB, double* myC, uint N, uint my
     #ifdef DEBUG
         initID(myA, myRank, N, myWorkSize, NPEs);
         initOrder(myB, myRank, N, myWorkSize, NPEs);
-        printMatrixDistributed(myA, myWorkSize, N, myRank, NPEs);
-        if(!myRank) printf("\n");
-        printMatrixDistributed(myB, myWorkSize, N, myRank, NPEs);
-        if(!myRank) printf("\n");
+        printMatrixThrSafe(myA, myWorkSize, N, myRank, NPEs);
+        printMatrixThrSafe(myB, myWorkSize, N, myRank, NPEs);
     #else
         initRandom(myA, N*myWorkSize);
         initRandom(myB, N*myWorkSize);

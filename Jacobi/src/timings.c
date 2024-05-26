@@ -1,7 +1,8 @@
 #include <sys/time.h>
 #include <stdio.h>
 #include <mpi.h>
-#include "../include/timings.h"
+
+#include "timings.h"
 
 void printTimings(struct Timings* t, int myRank, int NPEs){
     struct Timings maxT;

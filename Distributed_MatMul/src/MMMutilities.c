@@ -1,6 +1,6 @@
 #include <string.h>
-#include <omp.h>
 #include <stdio.h>
+#include <omp.h>
 #include <mpi.h>
 #ifdef CBLAS
   #include <cblas.h>
