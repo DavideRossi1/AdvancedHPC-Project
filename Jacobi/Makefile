@@ -15,11 +15,11 @@ CUDA=-DCUDA -lcublas -lcudart -lmpi -L/leonardo/prod/opt/libraries/openmpi/4.1.6
 OBJECTS=$(patsubst $(SRC)/%.c, $(OBJDIR)/%.o, $(wildcard $(SRC)/*.c))
 
 #FLAGS+=-DDEBUG
-FLAGS+=-DCONVERT
+#FLAGS+=-DCONVERT
 FLAGS+=-DPRINTTIME
 FLAGS+=-DPRINTMATRIX
 FLAGS+=$(OPENMP) $(OPT)
-#FLAGS+=-acc -Minfo=all
+FLAGS+=-acc -Minfo=all
 
 jacobi.x: $(OBJECTS) jacobi.c
 	@$(CC) $(FLAGS) $^ -o $@
@@ -27,18 +27,21 @@ $(OBJDIR)/%.o: $(SRC)/%.c
 	@mkdir -p $(OBJDIR)
 	@$(CC) $(FLAGS) -c $^ -o $@
 
+plot:
+	@gnuplot -p plot.plt
+	
 clean:
 	@rm -rf jacobi.x solution.*
 	@rm -rf $(OBJDIR)
 
-git:
+push:
 	@$(MAKE) clean $(PRINTDIR)
 	@git add .
 	@git commit -m "$(MS)"
 	@git push
-
-plot:
-	@gnuplot -p plot.plt
+pull:
+	@git reset --hard
+	@git pull
 
 .PHONY: clean plot git
 

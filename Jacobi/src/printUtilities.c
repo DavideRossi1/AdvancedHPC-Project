@@ -19,28 +19,31 @@ void convertMatrix(double *matrix, char* buffer, uint nRows, uint nCols) {
 
 void printMatrixDistributed(double *matrix, uint nRows, uint nCols, uint myRank, uint NPEs) 
 {
+  #pragma acc update self(matrix[:(nRows+2)*nCols])
   if (myRank) {
     if (myRank == NPEs-1) nRows++;
     MPI_Send(&matrix[nCols], nRows*nCols, MPI_DOUBLE, 0, myRank, MPI_COMM_WORLD);
-  } 
-  else {
+  } else 
+  {
     int offset = 0;
-    size_t rowCharSize = nCols*7 + 2; // 7 is the number of characters in the format string ('90.000\t'), 1 is for the newline
-    // Note: we actually also have a 100.000\t, but it will be a single value in the matrix, so the space needed for it is balanced
-    // by the zeroes in the first row
-    int nRowsPE1 = nRows + (NPEs == 1 ? 2 : 1);
-    char* myPart =       (char*)malloc(nRowsPE1 * rowCharSize * sizeof(char));
+    size_t rowCharSize = nCols*7; // 7 is the number of characters in the format string ('90.000\t' or with '\n')
+    // Note: we actually also have a 100.000\t, but it will be a single value in the matrix, so the space needed 
+    // for it is balanced by the zeroes in the first row
+    int nRowsP0 = nRows + (NPEs == 1 ? 2 : 1);
+    char* myPart =       (char*)malloc(nRowsP0 * rowCharSize * sizeof(char));
     char *entireMatrix = (char*)malloc(nCols * rowCharSize * sizeof(char)); // the entire matrix is nCols*nCols big
-    convertMatrix(matrix, myPart, nRowsPE1, nCols);
-    offset += snprintf(entireMatrix + offset, nRowsPE1 * rowCharSize - offset, "%s", myPart);
+    convertMatrix(matrix, myPart, nRowsP0, nCols);
+    offset += snprintf(entireMatrix + offset, nRowsP0 * rowCharSize - offset, "%s", myPart);
     double *buf = (double *)malloc((nRows+1) * nCols * sizeof(double)); // +1 because the last PE has an extra row
-    for (uint i = 1; i < NPEs; i++) {
+    for (uint i = 1; i < NPEs; i++) 
+    {
       uint nRowsSender = (nCols-2)/NPEs + (i < (nCols-2)%NPEs ? 1 : 0) + (i == NPEs-1 ? 1 : 0);
       MPI_Recv(buf, nRowsSender * nCols, MPI_DOUBLE, i, i, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
       convertMatrix(buf, myPart, nRowsSender, nCols);
       offset += snprintf(entireMatrix+offset, nRowsSender*rowCharSize-offset, "%s", myPart);
     }
-    printf("%s", entireMatrix);
+    MPI_Barrier(MPI_COMM_WORLD);
+    printf("%s\n", entireMatrix);
     free(buf);
     free(myPart);
     free(entireMatrix);
