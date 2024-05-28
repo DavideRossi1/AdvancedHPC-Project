@@ -14,23 +14,23 @@
 #include "MMMutilities.h"
 #include "printUtilities.h"
 
-void readBlockFromMatrix(double *block, double *matrix, uint nBlockRows, uint nBlockCols, uint nMatrixCols, uint startingCol) 
+void readBlockFromMatrix(double *block, double *matrix, size_t nBlockRows, size_t nBlockCols, size_t nMatrixCols, size_t startingCol) 
 {
 #pragma omp parallel for collapse(2)
-  for (uint i = 0; i < nBlockRows; i++)
-    for (uint j = 0; j < nBlockCols; j++)
+  for (size_t i = 0; i < nBlockRows; i++)
+    for (size_t j = 0; j < nBlockCols; j++)
       block[i * nBlockCols + j] = matrix[i * nMatrixCols + j + startingCol];
 }
 
-void placeBlockInMatrix(double *block, double *matrix, uint nBlockRows, uint nBlockCols, uint nMatrixCols, uint startingCol) 
+void placeBlockInMatrix(double *block, double *matrix, size_t nBlockRows, size_t nBlockCols, size_t nMatrixCols, size_t startingCol) 
 {
 #pragma omp parallel for collapse(2)
-  for (uint i = 0; i < nBlockRows; i++)
-    for (uint j = 0; j < nBlockCols; j++)
+  for (size_t i = 0; i < nBlockRows; i++)
+    for (size_t j = 0; j < nBlockCols; j++)
       matrix[i * nMatrixCols + j + startingCol] = block[i * nBlockCols + j];
 }
 
-void matMul(double *A, double *B, double *C, uint nRowsA, uint nColsARowsB, uint nColsB, uint startingCol, struct Timings* timings) 
+void matMul(double *A, double *B, double *C, size_t nRowsA, size_t nColsARowsB, size_t nColsB, size_t startingCol, struct Timings* timings) 
 {
   #ifdef CUDA
     timings->start = MPI_Wtime();
@@ -74,9 +74,9 @@ void matMul(double *A, double *B, double *C, uint nRowsA, uint nColsARowsB, uint
     free(myCBlock);
     timings->placeTime += MPI_Wtime() - timings->start;
   #else
-    for (uint i = 0; i < nRowsA; i++)
-      for (uint j = 0; j < nColsB; j++)
-        for (uint k = 0; k < nColsARowsB; k++)
+    for (size_t i = 0; i < nRowsA; i++)
+      for (size_t j = 0; j < nColsB; j++)
+        for (size_t k = 0; k < nColsARowsB; k++)
           C[i * nColsARowsB + startingCol + j] += A[i * nColsARowsB + k] * B[k * nColsB + j];
   #endif
   #endif

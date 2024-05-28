@@ -12,9 +12,9 @@
 #include "initUtilities.h"
 #include "MMMutilities.h"
 
-void buildRecvCountsAndDispls(int* recvcounts, int* displs, uint NPEs, uint N, uint colID);
+void buildRecvCountsAndDispls(size_t* recvcounts, size_t* displs, uint NPEs, size_t N, size_t colID);
 
-void initAndPrintMatrices(double* myA, double* myB, double* myC, uint N, uint myWorkSize, int myRank, int NPEs);
+void initAndPrintMatrices(double* myA, double* myB, double* myC, size_t N, size_t myWorkSize, uint myRank, uint NPEs);
 
 int main(int argc, char** argv)
 {
@@ -22,8 +22,8 @@ int main(int argc, char** argv)
         fprintf(stderr, "Usage: ./main <N>\n");
         return 1;
     }
-    const uint N = atoi(argv[1]);
-    int myRank, NPEs,provided;
+    const size_t N = atoi(argv[1]);
+    int myRank, NPEs, provided;
     MPI_Init_thread(&argc, &argv,MPI_THREAD_MULTIPLE,&provided);
     MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
     MPI_Comm_size(MPI_COMM_WORLD, &NPEs);
@@ -38,9 +38,9 @@ int main(int argc, char** argv)
         #endif
         cudaSetDevice(myRank % NGPUS);
     #endif
-    const uint workSize = N/NPEs;
-    const uint workSizeRemainder = N % NPEs;
-    const uint myWorkSize = workSize + ((uint)myRank < workSizeRemainder ? 1 : 0);
+    const size_t workSize = N/NPEs;
+    const size_t workSizeRemainder = N % NPEs;
+    const size_t myWorkSize = workSize + ((size_t)myRank < workSizeRemainder ? 1 : 0);
 
     MPI_Barrier(MPI_COMM_WORLD);
     timings.start = MPI_Wtime();
@@ -50,15 +50,15 @@ int main(int argc, char** argv)
     initAndPrintMatrices(myA, myB, myC, N, myWorkSize, myRank, NPEs);
     timings.initTime = MPI_Wtime() - timings.start;
     
-    int* recvcounts = (int*)malloc(NPEs*sizeof(int));
-    int* displs = (int*)malloc(NPEs*sizeof(int));
+    size_t* recvcounts = (size_t*)malloc(NPEs*sizeof(size_t));
+    size_t* displs = (size_t*)malloc(NPEs*sizeof(size_t));
     double* myBblock;
     double* columnB;
     uint nColumnsBblock, startPoint;
     #ifdef CUDA
         double* A_dev;
         cudaMalloc((void**) &A_dev, myWorkSize*N*sizeof(double));
-        cudaMemcpy(A_dev, myA, myWorkSize*N*sizeof(double), cudaMemcpyHostToDevice);
+        cudaMemcpy(A_dev, myA, myWorkSizeuint*N*sizeof(double), cudaMemcpyHostToDevice);
     #endif
 
     for(uint i = 0; i < (uint)NPEs; i++)
@@ -105,17 +105,17 @@ int main(int argc, char** argv)
     return 0;
 }
 
-void buildRecvCountsAndDispls(int* recvcounts, int* displs, uint NPEs, uint N, uint colID)
+void buildRecvCountsAndDispls(size_t* recvcounts, size_t* displs, uint NPEs, size_t N, size_t colID)
 {
-    uint nCols = N/NPEs + (colID < N % NPEs ? 1 : 0);
+    size_t nCols = N/NPEs + (colID < N % NPEs ? 1 : 0);
     for(uint j=0; j<NPEs; j++){
-        uint nRows= N/NPEs + (j < N % NPEs ? 1 : 0);
+        size_t nRows= N/NPEs + (j < N % NPEs ? 1 : 0);
         recvcounts[j] = nRows*nCols;
         displs[j] = j > 0 ? displs[j-1] + recvcounts[j-1] : 0;
     }
 }
 
-void initAndPrintMatrices(double* myA, double* myB, double* myC, uint N, uint myWorkSize, int myRank, int NPEs)
+void initAndPrintMatrices(double* myA, double* myB, double* myC, size_t N, size_t myWorkSize, uint myRank, uint NPEs)
 {
     memset(myC, 0, myWorkSize*N*sizeof(double));
     #ifdef DEBUG

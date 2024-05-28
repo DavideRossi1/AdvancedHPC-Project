@@ -3,7 +3,7 @@
 
 #include "printUtilities.h"
 
-void printMatrixThrSafe(double *matrix, uint nRows, uint nCols, uint myRank, uint NPEs) 
+void printMatrixThrSafe(double *matrix, size_t nRows, size_t nCols, uint myRank, uint NPEs) 
 {
   MPI_Barrier(MPI_COMM_WORLD);
   if (myRank) {
@@ -21,7 +21,7 @@ void printMatrixThrSafe(double *matrix, uint nRows, uint nCols, uint myRank, uin
     free(charMatrix);
     for (uint i = 1; i < NPEs; i++) 
     {
-      uint nRowsSender = nCols / NPEs + (i < nCols % NPEs ? 1 : 0);
+      size_t nRowsSender = nCols / NPEs + (i < nCols % NPEs ? 1 : 0);
       charMatrix = (char*)malloc(nRowsSender * charRowSize * sizeof(char));
       double *buf = (double *)malloc(nRowsSender * nCols * sizeof(double));
       MPI_Recv(buf, nRowsSender * nCols, MPI_DOUBLE, i, i, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -35,12 +35,12 @@ void printMatrixThrSafe(double *matrix, uint nRows, uint nCols, uint myRank, uin
   }
 }
 
-void convertMatrix(double *matrix, char* charMatrix, uint nRows, uint nCols) {
+void convertMatrix(double *matrix, char* charMatrix, size_t nRows, size_t nCols) {
   // build a string that contains the matrix
   size_t offset = 0;
   const size_t charMatrixSize = nRows*(nCols*7);
-  for (uint i = 0; i < nRows; i++) {  
-    for (uint j = 0; j < nCols; j++){
+  for (size_t i = 0; i < nRows; i++) {  
+    for (size_t j = 0; j < nCols; j++){
       char* format = j < nCols-1 ? "%.3f\t" : "%.3f\n";
       // maxlen has a +1 to account for the null terminator, which would overwrite the final \n if
       // all matrix elements have exactly 7 characters
@@ -49,7 +49,7 @@ void convertMatrix(double *matrix, char* charMatrix, uint nRows, uint nCols) {
   }
 }
 
-void printMatrixDistributed(double *matrix, uint nRows, uint nCols, uint myRank, uint NPEs) 
+void printMatrixDistributed(double *matrix, size_t nRows, size_t nCols, uint myRank, uint NPEs) 
 {
   if (myRank) {
     MPI_Send(matrix, nRows * nCols, MPI_DOUBLE, 0, myRank, MPI_COMM_WORLD);
@@ -57,7 +57,7 @@ void printMatrixDistributed(double *matrix, uint nRows, uint nCols, uint myRank,
   else {
     printMatrix(matrix, nRows, nCols);
     for (uint i = 1; i < NPEs; i++) {
-      uint nRowsSender = nCols / NPEs + (i < nCols % NPEs ? 1 : 0);
+      size_t nRowsSender = nCols / NPEs + (i < nCols % NPEs ? 1 : 0);
       double *buf = (double *)malloc(nRowsSender * nCols * sizeof(double));
       MPI_Recv(buf, nRowsSender * nCols, MPI_DOUBLE, i, i, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
       printMatrix(buf, nRowsSender, nCols);
@@ -66,10 +66,10 @@ void printMatrixDistributed(double *matrix, uint nRows, uint nCols, uint myRank,
   }
 }
 
-void printMatrix(double *matrix, uint nRows, uint nCols) {
+void printMatrix(double *matrix, size_t nRows, size_t nCols) {
   const char* format = "%.3f\t";
-  for (uint i = 0; i < nRows; i++) {
-    for (uint j = 0; j < nCols; j++)
+  for (size_t i = 0; i < nRows; i++) {
+    for (size_t j = 0; j < nCols; j++)
       printf(format, matrix[i * nCols + j]);
     printf("\n");
   }
