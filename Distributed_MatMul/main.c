@@ -12,9 +12,7 @@
 #include "initUtilities.h"
 #include "MMMutilities.h"
 
-void buildRecvCountsAndDispls(size_t* recvcounts, size_t* displs, uint NPEs, size_t N, size_t colID);
-
-void initAndPrintMatrices(double* myA, double* myB, double* myC, size_t N, size_t myWorkSize, uint myRank, uint NPEs);
+void buildRecvCountsAndDispls(int* recvcounts, int* displs, uint NPEs, uint N, uint colID);
 
 int main(int argc, char** argv)
 {
@@ -22,8 +20,8 @@ int main(int argc, char** argv)
         fprintf(stderr, "Usage: ./main <N>\n");
         return 1;
     }
-    const size_t N = atoi(argv[1]);
-    int myRank, NPEs, provided;
+    const uint N = atoi(argv[1]);
+    int myRank, NPEs,provided;
     MPI_Init_thread(&argc, &argv,MPI_THREAD_MULTIPLE,&provided);
     MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
     MPI_Comm_size(MPI_COMM_WORLD, &NPEs);
@@ -33,14 +31,15 @@ int main(int argc, char** argv)
     #ifdef CUDA
         int NGPUS=-1;
         cudaGetDeviceCount(&NGPUS);
-        #ifdef DEBUG
-            if(!myRank) printf("Running with %d GPUs\n",NGPUS);
-        #endif
+        if (!NGPUS){
+            fprintf(stderr, "No NVIDIA GPU found\n");
+            return 1;
+        }
         cudaSetDevice(myRank % NGPUS);
     #endif
-    const size_t workSize = N/NPEs;
-    const size_t workSizeRemainder = N % NPEs;
-    const size_t myWorkSize = workSize + ((size_t)myRank < workSizeRemainder ? 1 : 0);
+    const uint workSize = N/NPEs;
+    const uint workSizeRemainder = N % NPEs;
+    const uint myWorkSize = workSize + ((uint)myRank < workSizeRemainder ? 1 : 0);
 
     MPI_Barrier(MPI_COMM_WORLD);
     timings.start = MPI_Wtime();
@@ -50,15 +49,15 @@ int main(int argc, char** argv)
     initAndPrintMatrices(myA, myB, myC, N, myWorkSize, myRank, NPEs);
     timings.initTime = MPI_Wtime() - timings.start;
     
-    size_t* recvcounts = (size_t*)malloc(NPEs*sizeof(size_t));
-    size_t* displs = (size_t*)malloc(NPEs*sizeof(size_t));
+    int* recvcounts = (int*)malloc(NPEs*sizeof(int));
+    int* displs = (int*)malloc(NPEs*sizeof(int));
     double* myBblock;
     double* columnB;
     uint nColumnsBblock, startPoint;
     #ifdef CUDA
         double* A_dev;
         cudaMalloc((void**) &A_dev, myWorkSize*N*sizeof(double));
-        cudaMemcpy(A_dev, myA, myWorkSizeuint*N*sizeof(double), cudaMemcpyHostToDevice);
+        cudaMemcpy(A_dev, myA, myWorkSize*N*sizeof(double), cudaMemcpyHostToDevice);
     #endif
 
     for(uint i = 0; i < (uint)NPEs; i++)
@@ -73,13 +72,15 @@ int main(int argc, char** argv)
         buildRecvCountsAndDispls(recvcounts, displs, NPEs, N, i);
         timings.initCommTime += MPI_Wtime() - timings.start;
         timings.start = MPI_Wtime();
+        printf("done\n");
+        printf("recvcounts: %d\n",recvcounts[i]);
         MPI_Allgatherv(myBblock, myWorkSize*nColumnsBblock, MPI_DOUBLE, columnB, recvcounts, displs, MPI_DOUBLE, MPI_COMM_WORLD);
         timings.gatherTime += MPI_Wtime() - timings.start;
         timings.multStart = MPI_Wtime();
         #ifdef CUDA
-            matMul(A_dev, columnB, myC, myWorkSize, N, nColumnsBblock, startPoint,&timings);
+            matMul(A_dev, columnB, myC, myWorkSize, N, nColumnsBblock, startPoint, &timings);
         #else
-            matMul(myA, columnB, myC, myWorkSize, N, nColumnsBblock, startPoint,&timings);
+            matMul(myA, columnB, myC, myWorkSize, N, nColumnsBblock, startPoint, &timings);
         #endif
         timings.multTime += MPI_Wtime() - timings.multStart;
         free(myBblock);
@@ -105,26 +106,12 @@ int main(int argc, char** argv)
     return 0;
 }
 
-void buildRecvCountsAndDispls(size_t* recvcounts, size_t* displs, uint NPEs, size_t N, size_t colID)
+void buildRecvCountsAndDispls(int* recvcounts, int* displs, uint NPEs, uint N, uint colID)
 {
-    size_t nCols = N/NPEs + (colID < N % NPEs ? 1 : 0);
+    uint nCols = N/NPEs + (colID < N % NPEs ? 1 : 0);
     for(uint j=0; j<NPEs; j++){
-        size_t nRows= N/NPEs + (j < N % NPEs ? 1 : 0);
+        uint nRows= N/NPEs + (j < N % NPEs ? 1 : 0);
         recvcounts[j] = nRows*nCols;
         displs[j] = j > 0 ? displs[j-1] + recvcounts[j-1] : 0;
     }
-}
-
-void initAndPrintMatrices(double* myA, double* myB, double* myC, size_t N, size_t myWorkSize, uint myRank, uint NPEs)
-{
-    memset(myC, 0, myWorkSize*N*sizeof(double));
-    #ifdef DEBUG
-        initID(myA, myRank, N, myWorkSize, NPEs);
-        initOrder(myB, myRank, N, myWorkSize, NPEs);
-        printMatrixThrSafe(myA, myWorkSize, N, myRank, NPEs);
-        printMatrixThrSafe(myB, myWorkSize, N, myRank, NPEs);
-    #else
-        initRandom(myA, N*myWorkSize);
-        initRandom(myB, N*myWorkSize);
-    #endif
 }

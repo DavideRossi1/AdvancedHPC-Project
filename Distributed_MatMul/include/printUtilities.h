@@ -1,10 +1,10 @@
 #pragma once
 #include <stdlib.h>
 
-void printMatrixThrSafe(double *matrix, size_t nRows, size_t nCols, uint myRank, uint NPEs);
+void printMatrixThrSafe(double *matrix, uint nRows, uint nCols, uint myRank, uint NPEs);
 
-void convertMatrix(double *matrix, char* charMatrix, size_t nRows, size_t nCols);
+void convertMatrix(double *matrix, char* charMatrix, uint nRows, uint nCols);
 
-void printMatrixDistributed(double *matrix, size_t nRows, size_t nCols, uint myRank, uint NPEs);
+void printMatrixDistributed(double *matrix, uint nRows, uint nCols, uint myRank, uint NPEs);
 
-void printMatrix(double *matrix, size_t nRows, size_t nCols);
+void printMatrix(double *matrix, uint nRows, uint nCols);

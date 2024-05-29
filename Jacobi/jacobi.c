@@ -52,20 +52,17 @@ int main(int argc, char* argv[])
   double *matrix     = ( double* )malloc( my_byte_dim ); 
   double *matrix_new = ( double* )malloc( my_byte_dim );
   double *tmp_matrix;
-  #pragma acc enter data create(matrix[:myWorkSize*dimWithBord], matrix_new[:myWorkSize*dimWithBord])
-  MPI_Barrier(MPI_COMM_WORLD);
-  timings.start = MPI_Wtime();
-#pragma acc data copy(myRank, NPEs, ngpu, gpuid, dim, iterations, dimWithBord, workSize, workSizeRemainder, myWorkSize, timings)
+  start(&timings);
+#pragma acc data copy(timings, matrix[:myWorkSize*dimWithEdge], matrix_new[:myWorkSize*dimWithEdge])
 {
   init( matrix, matrix_new, myWorkSize, dimWithEdge, myRank, NPEs, prev, next);
-  MPI_Barrier(MPI_COMM_WORLD);
-  #ifdef PRINTMATRIX
+  timings.initTime = end(&timings);
+  #ifdef DEBUG
     printMatrixThrSafe(matrix, myWorkSize, dimWithEdge, myRank, NPEs);
     printMatrixThrSafe(matrix_new, myWorkSize, dimWithEdge, myRank, NPEs);
   #endif
-  timings.initTime = MPI_Wtime() - timings.start;
   // start algorithm
-  timings.start = MPI_Wtime();
+  start(&timings);
   for(size_t it = 0; it < iterations; ++it )
   {
     evolve( matrix, matrix_new, myWorkSize, dimWithEdge, prev, next);
@@ -73,30 +70,26 @@ int main(int argc, char* argv[])
     tmp_matrix = matrix;
     matrix = matrix_new;
     matrix_new = tmp_matrix;
-    #ifdef PRINTMATRIX
+    #ifdef DEBUG
       printMatrixThrSafe(matrix, myWorkSize, dimWithEdge, myRank, NPEs);
     #endif
   }
-  MPI_Barrier(MPI_COMM_WORLD);
-  timings.evolveTime = MPI_Wtime() - timings.start;
+  timings.evolveTime = end(&timings);
 
   // save results
-  timings.start = MPI_Wtime();
+  start(&timings);
   save_gnuplot( matrix, dimWithEdge, myRank, NPEs, myWorkSize);
+  timings.saveTime = end(&timings);
+  
   MPI_Barrier(MPI_COMM_WORLD);
-  timings.saveTime = MPI_Wtime() - timings.start;
-
-  #ifdef CONVERT
-    convertBinToTxt();
-  #endif
-  free( matrix );
-  free( matrix_new );
   timings.totalTime = MPI_Wtime() - timings.programStart;
 
   #ifdef PRINTTIME
     printTimings(&timings, myRank, NPEs);
   #endif
 }
+  free( matrix );
+  free( matrix_new );
   MPI_Finalize();
   return 0;
 }

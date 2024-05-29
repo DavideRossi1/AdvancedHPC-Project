@@ -96,33 +96,9 @@ void save_gnuplot( double *M, size_t dim, uint myRank, uint NPEs, uint myWorkSiz
   size_t end = myRank==NPEs-1 ? myWorkSize : myWorkSize-1;
   for (size_t i = start; i < end; i++){
     for (size_t j = 0; j < dim; j++){
-      double buffer[3] = {h*j, -h*i, M[i*dim+j]};
-      MPI_File_write_at(file, of + (i*dim+j)*3*sizeof(double), buffer, 3, MPI_DOUBLE, MPI_STATUS_IGNORE);
+      double buffer[3] = {h*j, -h*i, M[i*dim+j]}; // 2nd el: -h * (shift + i - start)
+      MPI_File_write_at(file, of + (i*dim+j)*3*sizeof(double), buffer, 3, MPI_DOUBLE, MPI_STATUS_IGNORE); // with the 2nd el as above, write on of+((i-start)*dim+j)*3*...
     }
   }
   MPI_File_close(&file);
-}
-
-
-void convertBinToTxt()
-{
-    FILE *binFile, *txtFile;
-    double buffer[3];
-    binFile = fopen("solution.dat", "rb");
-    if (binFile == NULL) {
-        fprintf(stderr, "Cannot open binary file.\n");
-        return;
-    }
-    txtFile = fopen("solution.csv", "w");
-    if (txtFile == NULL) {
-        fprintf(stderr, "Cannot open text file.\n");
-        fclose(binFile);
-        return;
-    }
-    // Read from binary file and write to text file
-    while (fread(buffer, sizeof(double), 3, binFile) == 3)
-        fprintf(txtFile, "%.6f\t%.6f\t%.6f\n", buffer[0], buffer[1], buffer[2]);
-    fclose(binFile);
-    fclose(txtFile);
-
 }
