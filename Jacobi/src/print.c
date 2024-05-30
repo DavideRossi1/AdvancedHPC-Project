@@ -2,11 +2,12 @@
 #include <string.h>
 #include <mpi.h>
 
-#include "printUtilities.h"
+#include "print.h"
 
 
 void printMatrixThrSafe(double *matrix, uint nRows, uint nCols, uint myRank, uint NPEs) 
 {
+  MPI_Barrier(MPI_COMM_WORLD);
   #pragma acc update self(matrix[:nRows*nCols])
   if (myRank) {
     if (myRank == NPEs-1) nRows++;
@@ -80,24 +81,21 @@ void printMatrixDistributed(double *matrix, uint nRows, uint nCols, uint myRank,
 void printMatrix(double *matrix, uint nRows, uint nCols) {
   for (uint i = 0; i < nRows; i++) {
     for (uint j = 0; j < nCols; j++)
-      printf("%.3f\t", matrix[i * nCols + j]);
+      printf("%.3f\t", matrix[i*nCols + j]);
     printf("\n");
   }
 }
 
-void save_gnuplot( double *M, size_t dim, uint myRank, uint NPEs, uint myWorkSize)
+void save_gnuplot( double *M, size_t dim, uint firstRow, uint lastRow, uint shift)
 {
   const double h = 0.1;
   MPI_File file;
   MPI_File_open(MPI_COMM_WORLD, "solution.dat", MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &file);
-  uint shift = myRank*((dim-2)/NPEs) + (myRank < (dim-2)%NPEs ? myRank : (dim-2)%NPEs);
   MPI_Offset of = shift*dim*3*sizeof(double);
-  size_t start = myRank ? 1 : 0;
-  size_t end = myRank==NPEs-1 ? myWorkSize : myWorkSize-1;
-  for (size_t i = start; i < end; i++){
+  for (size_t i = firstRow; i < lastRow; i++){
     for (size_t j = 0; j < dim; j++){
-      double buffer[3] = {h*j, -h*i, M[i*dim+j]}; // 2nd el: -h * (shift + i - start)
-      MPI_File_write_at(file, of + (i*dim+j)*3*sizeof(double), buffer, 3, MPI_DOUBLE, MPI_STATUS_IGNORE); // with the 2nd el as above, write on of+((i-start)*dim+j)*3*...
+      double buffer[3] = {h*j, -h*(shift+i), M[i*dim+j]};
+      MPI_File_write_at(file, of + (i*dim+j)*3*sizeof(double), buffer, 3, MPI_DOUBLE, MPI_STATUS_IGNORE);
     }
   }
   MPI_File_close(&file);

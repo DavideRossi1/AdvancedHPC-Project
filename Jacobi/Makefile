@@ -1,18 +1,17 @@
 # inputs for the executables
 CC=mpicc
-INCLUDE = include
+INCLUDE=include
 OBJDIR=obj
 SRC=src
+PRINTDIR=--no-print-directory
 
-FLAGS=-O3 -I$(INCLUDE) -Wall -Wextra -march=native -g #-Wno-unknown-pragmas
+FLAGS=-O3 -I$(INCLUDE) -Wall -Wextra -march=native -Wno-unknown-pragmas
 
 OBJECTS=$(patsubst $(SRC)/%.c, $(OBJDIR)/%.o, $(wildcard $(SRC)/*.c))
 
 #FLAGS+=-DDEBUG
-#FLAGS+=-DCONVERT
-FLAGS+=-DPRINTTIME
 
-FLAGS+=-acc -Minfo=all
+#FLAGS+=-acc -Minfo=all
 
 jacobi.x: $(OBJECTS) jacobi.c
 	@$(CC) $(FLAGS) $^ -o $@
@@ -24,8 +23,7 @@ plot:
 	@gnuplot -p plot.plt
 	
 clean:
-	@rm -rf jacobi.x solution.*
-	@rm -rf $(OBJDIR)
+	@rm -rf jacobi.x solution.dat $(OBJDIR)
 
 push:
 	@$(MAKE) clean $(PRINTDIR)
@@ -35,6 +33,11 @@ push:
 pull:
 	@git reset --hard
 	@git pull
+
+run:
+	@$(MAKE) clean $(PRINTDIR)
+	@$(MAKE) $(PRINTDIR)
+	@mpirun -np $(NP) ./jacobi.x $(SZ) $(IT)
 
 .PHONY: clean plot push pull
 

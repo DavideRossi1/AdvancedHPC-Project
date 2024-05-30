@@ -9,6 +9,4 @@ void printMatrixDistributed(double *matrix, uint nRows, uint nCols, uint myRank,
 
 void printMatrix(double *matrix, uint nRows, uint nCols);
 
-void save_gnuplot( double *M, size_t dim, uint myRank, uint NPEs, uint myWorkSize);
-
-void convertBinToTxt();
+void save_gnuplot( double *M, size_t dim, uint start, uint end, uint shift);

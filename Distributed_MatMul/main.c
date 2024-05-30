@@ -1,18 +1,18 @@
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/time.h>
-#include <mpi.h>
 #ifdef CUDA
     #include <cuda_runtime.h>
-    #include <cublas_v2.h>
 #endif
 
-#include "printUtilities.h"
-#include "initUtilities.h"
-#include "MMMutilities.h"
+#include "print.h"
+#include "init.h"
+#include "MMmult.h"
+#include "timer.h"
 
 void buildRecvCountsAndDispls(int* recvcounts, int* displs, uint NPEs, uint N, uint colID);
+
+//void printArray(int* array, uint size);
+
+//int MPI_Allgatherv_L(const void *sendbuf, size_t sendcount, MPI_Datatype sendtype, void *recvbuf, const size_t *recvcounts, const size_t *displs, MPI_Datatype recvtype, MPI_Comm comm, int myRank, int NPEs);
 
 int main(int argc, char** argv)
 {
@@ -25,30 +25,33 @@ int main(int argc, char** argv)
     MPI_Init_thread(&argc, &argv,MPI_THREAD_MULTIPLE,&provided);
     MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
     MPI_Comm_size(MPI_COMM_WORLD, &NPEs);
-    struct Timings timings = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; 
-    timings.programStart = MPI_Wtime();
-    
+    struct Timer t = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; 
+    MPI_Barrier(MPI_COMM_WORLD);
+    t.programStart = MPI_Wtime();
     #ifdef CUDA
-        int NGPUS=-1;
-        cudaGetDeviceCount(&NGPUS);
-        if (!NGPUS){
+        int ngpus=-1;
+        cudaGetDeviceCount(&ngpus);
+        if (!ngpus){
             fprintf(stderr, "No NVIDIA GPU found\n");
             return 1;
         }
-        cudaSetDevice(myRank % NGPUS);
+        cudaSetDevice(myRank % ngpus);
     #endif
-    const uint workSize = N/NPEs;
-    const uint workSizeRemainder = N % NPEs;
-    const uint myWorkSize = workSize + ((uint)myRank < workSizeRemainder ? 1 : 0);
+    const uint workSize = N / NPEs;
+    const uint workSizeRem = N % NPEs;
+    const uint myNRows = workSize + ((uint)myRank < workSizeRem ? 1 : 0);
+    const size_t myByteDim = myNRows * N * sizeof(double);
 
-    MPI_Barrier(MPI_COMM_WORLD);
-    timings.start = MPI_Wtime();
-    double* myA = (double*)malloc(N*myWorkSize*sizeof(double));
-    double* myB = (double*)malloc(N*myWorkSize*sizeof(double));
-    double* myC = (double*)malloc(N*myWorkSize*sizeof(double));
-    initAndPrintMatrices(myA, myB, myC, N, myWorkSize, myRank, NPEs);
-    timings.initTime = MPI_Wtime() - timings.start;
-    
+    start(&t);
+    double* myA = (double*)malloc(myByteDim);
+    double* myB = (double*)malloc(myByteDim);
+    double* myC = (double*)malloc(myByteDim);
+    initAndPrintMatrices(myA, myB, myC, myNRows, N, myRank, NPEs);
+    t.initTime = end(&t);
+    #ifdef DEBUG
+        printMatrixThrSafe(myA, myNRows, N, myRank, NPEs);
+        printMatrixThrSafe(myB, myNRows, N, myRank, NPEs);
+    #endif
     int* recvcounts = (int*)malloc(NPEs*sizeof(int));
     int* displs = (int*)malloc(NPEs*sizeof(int));
     double* myBblock;
@@ -56,39 +59,37 @@ int main(int argc, char** argv)
     uint nColumnsBblock, startPoint;
     #ifdef CUDA
         double* A_dev;
-        cudaMalloc((void**) &A_dev, myWorkSize*N*sizeof(double));
-        cudaMemcpy(A_dev, myA, myWorkSize*N*sizeof(double), cudaMemcpyHostToDevice);
+        cudaMalloc((void**) &A_dev, myByteDim);
+        cudaMemcpy(A_dev, myA, myByteDim, cudaMemcpyHostToDevice);
     #endif
 
     for(uint i = 0; i < (uint)NPEs; i++)
     {
-        MPI_Barrier(MPI_COMM_WORLD);
-        timings.start = MPI_Wtime();
-        nColumnsBblock = workSize + (i < workSizeRemainder ? 1 : 0);
-        startPoint = i*workSize + (i < workSizeRemainder ? i : workSizeRemainder);
-        myBblock = (double*)malloc(nColumnsBblock*myWorkSize*sizeof(double));
-        readBlockFromMatrix(myBblock, myB, myWorkSize, nColumnsBblock, N, startPoint);
+        start(&t);
+        nColumnsBblock = workSize + (i < workSizeRem ? 1 : 0);
+        startPoint = i*workSize + (i < workSizeRem ? i : workSizeRem);
+        myBblock = (double*)malloc(nColumnsBblock*myNRows*sizeof(double));
+        readBlockFromMatrix(myBblock, myB, myNRows, nColumnsBblock, N, startPoint);
         columnB = (double*)malloc(nColumnsBblock*N*sizeof(double));
         buildRecvCountsAndDispls(recvcounts, displs, NPEs, N, i);
-        timings.initCommTime += MPI_Wtime() - timings.start;
-        timings.start = MPI_Wtime();
-        printf("done\n");
-        printf("recvcounts: %d\n",recvcounts[i]);
-        MPI_Allgatherv(myBblock, myWorkSize*nColumnsBblock, MPI_DOUBLE, columnB, recvcounts, displs, MPI_DOUBLE, MPI_COMM_WORLD);
-        timings.gatherTime += MPI_Wtime() - timings.start;
-        timings.multStart = MPI_Wtime();
+        t.initCommTime += end(&t);
+        start(&t);
+        MPI_Allgatherv(myBblock, myNRows*nColumnsBblock, MPI_DOUBLE, columnB, recvcounts, displs, MPI_DOUBLE, MPI_COMM_WORLD);
+        t.gatherTime += end(&t);
+        t.multStart = MPI_Wtime();
         #ifdef CUDA
-            matMul(A_dev, columnB, myC, myWorkSize, N, nColumnsBblock, startPoint, &timings);
+            matMul(A_dev, columnB, myC, myNRows, N, nColumnsBblock, startPoint, &t);
         #else
-            matMul(myA, columnB, myC, myWorkSize, N, nColumnsBblock, startPoint, &timings);
+            matMul(myA, columnB, myC, myNRows, N, nColumnsBblock, startPoint, &t);
         #endif
-        timings.multTime += MPI_Wtime() - timings.multStart;
+        MPI_Barrier(MPI_COMM_WORLD);
+        t.multTime += MPI_Wtime() - t.multStart;
         free(myBblock);
         free(columnB);
     } 
     MPI_Barrier(MPI_COMM_WORLD);
     #ifdef DEBUG
-        printMatrixThrSafe(myC, myWorkSize, N, myRank, NPEs);
+        printMatrixThrSafe(myC, myNRows, N, myRank, NPEs);
     #endif
     #ifdef CUDA
         cudaFree(A_dev);
@@ -98,10 +99,9 @@ int main(int argc, char** argv)
     free(myC);
     free(recvcounts);
     free(displs);
-    timings.totalTime = MPI_Wtime() - timings.programStart;
-    #ifdef PRINTTIME
-        printTimings(&timings, myRank, NPEs);
-    #endif
+    MPI_Barrier(MPI_COMM_WORLD);
+    t.totalTime = MPI_Wtime() - t.programStart;
+    printTimings(&t, myRank, NPEs);
     MPI_Finalize();
     return 0;
 }
@@ -115,3 +115,42 @@ void buildRecvCountsAndDispls(int* recvcounts, int* displs, uint NPEs, uint N, u
         displs[j] = j > 0 ? displs[j-1] + recvcounts[j-1] : 0;
     }
 }
+
+// void printArray(int* array, uint size){
+//     for(uint i=0; i<size; i++)
+//         printf("%d ", array[i]);
+//     printf("\n");
+// }
+
+// failed test to enlarge allgatherv to allow larger matrices
+// int MPI_Allgatherv_L(const void *sendbuf, size_t sendcount, MPI_Datatype sendtype, void *recvbuf, const size_t *recvcounts, const size_t *displs, MPI_Datatype recvtype, MPI_Comm comm, int myRank, int NPEs) {
+//     int maxCount = 2;
+//     int nChunks = sendcount / maxCount + 1;
+//     int remainder = sendcount % maxCount;
+//     int chunkSendcount = maxCount;
+//     int output;
+//     size_t recvcountsLeft[NPEs];
+//     size_t displsCopy[NPEs];
+//     memcpy(recvcountsLeft, recvcounts, NPEs*sizeof(size_t));
+//     memcpy(displsCopy, displs, NPEs*sizeof(size_t));
+//     printf("recvcountsLeft:\n");
+//     printArray(recvcountsLeft, NPEs);
+//     printf("displsCopy:\n");
+//     printArray(displsCopy, NPEs);
+//     int* chunkRecvcounts = (int*)malloc(NPEs*sizeof(int));
+//     for (int i = 0; i < nChunks; i++) {
+//         if (i == nChunks - 1 && remainder > 0) chunkSendcount = remainder;
+//         for (int j = 0; j < NPEs; j++) {
+//             chunkRecvcounts[j] = recvcountsLeft[j] > maxCount ? maxCount : recvcountsLeft[j];
+//             recvcountsLeft[j] -= chunkRecvcounts[j];
+//             displsCopy[j] += chunkRecvcounts[j];            
+//         }
+//         printf("chunkRecvcounts:\n");
+//         printArray(chunkRecvcounts, NPEs);
+//         printf("displsCopy:\n");
+//         printArray(displsCopy, NPEs);
+//         output = MPI_Allgatherv(sendbuf, chunkSendcount, sendtype, recvbuf, chunkRecvcounts, displsCopy, recvtype, comm);
+//         if (output != MPI_SUCCESS) return output;
+//     }
+//     return MPI_SUCCESS;
+// }

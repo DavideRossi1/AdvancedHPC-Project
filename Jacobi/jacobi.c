@@ -1,6 +1,3 @@
-#include <stddef.h>
-#include <string.h>
-#include <stdlib.h>
 #include <stdio.h>
 #include <mpi.h>
 
@@ -8,10 +5,10 @@
   #include <accel.h>
 #endif
 
-#include "printUtilities.h"
-#include "initUtilities.h"
-#include "evolveUtilities.h"
-#include "timings.h"
+#include "print.h"
+#include "init.h"
+#include "evolve.h"
+#include "timer.h"
 
 int main(int argc, char* argv[])
 {  
@@ -25,9 +22,9 @@ int main(int argc, char* argv[])
   MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
   MPI_Comm_size(MPI_COMM_WORLD, &NPEs);  
 
-  struct Timings timings = { 0, 0, 0, 0, 0, 0 };
+  struct Timer t = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
   MPI_Barrier(MPI_COMM_WORLD);
-  timings.programStart = MPI_Wtime();
+  t.programStart = MPI_Wtime();
 
   #ifdef _OPENACC
     const int ngpu = acc_get_num_devices(acc_device_nvidia);
@@ -49,23 +46,28 @@ int main(int argc, char* argv[])
   const uint workSizeRemainder = dim % NPEs;
   const uint myWorkSize = workSize + ((uint)myRank < workSizeRemainder ? 1 : 0) + 2;  // 2 rows added for the borders
   size_t my_byte_dim = sizeof(double) * myWorkSize * dimWithEdge;
+  const uint shift = myRank*workSize + ((uint)myRank < workSizeRemainder ? (uint)myRank : workSizeRemainder);
+  #ifdef DEBUG
+    printf("proc %d, shift %d\n", myRank, shift);
+  #endif
   double *matrix     = ( double* )malloc( my_byte_dim ); 
   double *matrix_new = ( double* )malloc( my_byte_dim );
-  double *tmp_matrix;
-  start(&timings);
+  double *tmp_matrix;  
+  start(&t);
 #pragma acc data copy(timings, matrix[:myWorkSize*dimWithEdge], matrix_new[:myWorkSize*dimWithEdge])
 {
-  init( matrix, matrix_new, myWorkSize, dimWithEdge, myRank, NPEs, prev, next);
-  timings.initTime = end(&timings);
+  init( matrix, matrix_new, myWorkSize, dimWithEdge, prev, next, shift);
+  t.initTime = end(&t);
   #ifdef DEBUG
     printMatrixThrSafe(matrix, myWorkSize, dimWithEdge, myRank, NPEs);
     printMatrixThrSafe(matrix_new, myWorkSize, dimWithEdge, myRank, NPEs);
   #endif
   // start algorithm
-  start(&timings);
+  MPI_Barrier(MPI_COMM_WORLD);
+  t.evolveStart = MPI_Wtime();
   for(size_t it = 0; it < iterations; ++it )
   {
-    evolve( matrix, matrix_new, myWorkSize, dimWithEdge, prev, next);
+    evolve( matrix, matrix_new, myWorkSize, dimWithEdge, prev, next, &t);
     MPI_Barrier(MPI_COMM_WORLD);
     tmp_matrix = matrix;
     matrix = matrix_new;
@@ -74,19 +76,20 @@ int main(int argc, char* argv[])
       printMatrixThrSafe(matrix, myWorkSize, dimWithEdge, myRank, NPEs);
     #endif
   }
-  timings.evolveTime = end(&timings);
+  MPI_Barrier(MPI_COMM_WORLD);
+  t.evolveTime = MPI_Wtime() - t.evolveStart;
 
   // save results
-  start(&timings);
-  save_gnuplot( matrix, dimWithEdge, myRank, NPEs, myWorkSize);
-  timings.saveTime = end(&timings);
+  start(&t);
+  // skip the first and last row, except for the first and last process
+  uint firstRow = myRank ? 1 : 0;
+  uint lastRow = myRank < NPEs-1 ? myWorkSize-1 : myWorkSize;
+  save_gnuplot( matrix, dimWithEdge, firstRow, lastRow, shift);
+  t.saveTime = end(&t);
   
   MPI_Barrier(MPI_COMM_WORLD);
-  timings.totalTime = MPI_Wtime() - timings.programStart;
-
-  #ifdef PRINTTIME
-    printTimings(&timings, myRank, NPEs);
-  #endif
+  t.totalTime = MPI_Wtime() - t.programStart;
+  printTimings(&t, myRank, NPEs);
 }
   free( matrix );
   free( matrix_new );

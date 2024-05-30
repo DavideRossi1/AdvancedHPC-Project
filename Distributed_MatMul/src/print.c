@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <mpi.h>
 
-#include "printUtilities.h"
+#include "print.h"
 
 void printMatrixThrSafe(double *matrix, uint nRows, uint nCols, uint myRank, uint NPEs) 
 {
@@ -63,14 +63,14 @@ void printMatrixDistributed(double *matrix, uint nRows, uint nCols, uint myRank,
       printMatrix(buf, nRowsSender, nCols);
       free(buf);
     }
+    printf("\n");
   }
 }
 
 void printMatrix(double *matrix, uint nRows, uint nCols) {
-  const char* format = "%.3f\t";
   for (uint i = 0; i < nRows; i++) {
     for (uint j = 0; j < nCols; j++)
-      printf(format, matrix[i * nCols + j]);
+      printf("%.3f\t", matrix[i * nCols + j]);
     printf("\n");
   }
 }

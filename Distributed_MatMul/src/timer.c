@@ -1,10 +1,11 @@
 #include <stdio.h>
-#include <mpi.h>
-#include "timings.h"
 
-void printTimings(struct Timings* t, int myRank, int NPEs){
-    struct Timings maxT;
-    struct Timings avgT;
+#include "timer.h"
+
+void printTimings(struct Timer* t, int myRank, int NPEs)
+{
+    struct Timer maxT;
+    struct Timer avgT;
     MPI_Reduce(&t->initTime,     &maxT.initTime,     1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
     MPI_Reduce(&t->initCommTime, &maxT.initCommTime, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
     MPI_Reduce(&t->gatherTime,   &maxT.gatherTime,   1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);

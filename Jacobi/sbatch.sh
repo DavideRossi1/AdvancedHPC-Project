@@ -15,16 +15,13 @@ module load openmpi/4.1.6--nvhpc--23.11
 
 echo "Running on $SLURM_NNODES nodes"
 
-export OMP_PLACES=cores
-export OMP_PROC_BIND=close
-
 size=1200
 nIter=10
 file=data/$size.csv
 
 make clean
 make cuda
-echo "init;evolve;save;total" >> $file
+echo "init;update;sendrecv;evolve;save;total" >> $file
 for nTasks in 1 2 4 8 16 32
 do
         echo $nTasks >> $file

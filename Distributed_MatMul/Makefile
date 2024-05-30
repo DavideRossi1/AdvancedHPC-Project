@@ -13,8 +13,7 @@ CUDA=-DCUDA -lcublas -lcudart -lmpi -L/leonardo/prod/opt/libraries/openmpi/4.1.6
 
 OBJECTS=$(patsubst $(SRC)/%.c, $(OBJDIR)/%.o, $(wildcard $(SRC)/*.c))
 
-#FLAGS+=-DDEBUG
-FLAGS+=-DPRINTTIME
+FLAGS+=-DDEBUG
 
 base: FLAGS+=$(OPT) $(OPENMP)
 base: main
@@ -33,14 +32,16 @@ $(OBJDIR)/%.o: $(SRC)/%.c
 	@$(CC) $(FLAGS) -c $^ -o $@
 
 clean:
-	@rm -rf main main.o
-	@rm -rf $(OBJDIR)
+	@rm -rf main $(OBJDIR)
 
 push:
 	@$(MAKE) clean $(PRINTDIR)
 	@git add .
 	@git commit -m "$(MS)"
 	@git push
+pull:
+	@git reset --hard
+	@git pull
 
 runBase: FUNC=base
 runBase: run
@@ -55,3 +56,5 @@ run:
 	@$(MAKE) clean $(PRINTDIR)
 	@$(MAKE) $(FUNC) $(PRINTDIR)
 	@mpirun -np $(NP) ./main $(SZ)
+
+.PHONY: clean push pull

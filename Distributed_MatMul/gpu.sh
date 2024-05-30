@@ -15,6 +15,9 @@ module load openmpi/4.1.6--nvhpc--23.11
 
 echo "Running on $SLURM_NNODES nodes"
 
+export OMP_PLACES=cores
+export OMP_PROC_BIND=close
+
 size=50000
 file=data/gpu$size.csv
 
