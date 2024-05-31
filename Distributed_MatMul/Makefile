@@ -2,7 +2,6 @@ CC=mpicc
 INCLUDE=include
 OBJDIR=obj
 SRC=src
-FUNC=base
 PRINTDIR=--no-print-directory
 
 FLAGS=-O3 -I$(INCLUDE)

@@ -5,13 +5,20 @@ OBJDIR=obj
 SRC=src
 PRINTDIR=--no-print-directory
 
-FLAGS=-O3 -I$(INCLUDE) -Wall -Wextra -march=native -Wno-unknown-pragmas
+FLAGS=-O3 -I$(INCLUDE) -Wall -Wextra -march=native #-Wno-unknown-pragmas
+ACC=-acc -Minfo=all
+OPENMP=-fopenmp
 
 OBJECTS=$(patsubst $(SRC)/%.c, $(OBJDIR)/%.o, $(wildcard $(SRC)/*.c))
 
 #FLAGS+=-DDEBUG
+FLAGS+=-DSAVEPLOT
 
-#FLAGS+=-acc -Minfo=all
+gpu: FLAGS+=$(ACC)
+gpu: jacobi.x
+
+cpu: FLAGS+=$(OPENMP)
+cpu: jacobi.x
 
 jacobi.x: $(OBJECTS) jacobi.c
 	@$(CC) $(FLAGS) $^ -o $@
@@ -34,10 +41,16 @@ pull:
 	@git reset --hard
 	@git pull
 
+runcpu: FUNC=cpu
+runcpu: run
+
+rungpu: FUNC=gpu
+rungpu: run
+
 run:
 	@$(MAKE) clean $(PRINTDIR)
-	@$(MAKE) $(PRINTDIR)
+	@$(MAKE) $(FUNC) $(PRINTDIR)
 	@mpirun -np $(NP) ./jacobi.x $(SZ) $(IT)
 
-.PHONY: clean plot push pull
+.PHONY: clean plot push pull run
 

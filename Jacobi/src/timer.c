@@ -7,23 +7,29 @@ void printTimings(struct Timer* t, int myRank, int NPEs)
 {
     struct Timer maxT;
     struct Timer avgT;
-    MPI_Reduce(&t->initTime,     &maxT.initTime,     1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&t->updTime,      &maxT.updTime,      1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&t->sendRecvTime, &maxT.sendRecvTime, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&t->evolveTime,   &maxT.evolveTime,   1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&t->saveTime,     &maxT.saveTime,     1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&t->totalTime,    &maxT.totalTime,    1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&t->initACC,  &maxT.initACC,  1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&t->copyin,   &maxT.copyin,   1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&t->init,     &maxT.init,     1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&t->update,   &maxT.update,   1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&t->sendRecv, &maxT.sendRecv, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&t->evolve,   &maxT.evolve,   1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&t->save,     &maxT.save,     1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&t->copyout,  &maxT.copyout,  1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&t->total,    &maxT.total,    1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
 
-    MPI_Reduce(&t->initTime,     &avgT.initTime,     1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&t->updTime,      &avgT.updTime,      1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&t->sendRecvTime, &avgT.sendRecvTime, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&t->evolveTime,   &avgT.evolveTime,   1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&t->saveTime,     &avgT.saveTime,     1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&t->totalTime,    &avgT.totalTime,    1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&t->initACC,  &avgT.initACC,  1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&t->copyin,   &avgT.copyin,   1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&t->init,     &avgT.init,     1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&t->update,   &avgT.update,   1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&t->sendRecv, &avgT.sendRecv, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&t->evolve,   &avgT.evolve,   1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&t->save,     &avgT.save,     1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&t->copyout,  &avgT.copyout,  1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&t->total,    &avgT.total,    1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 
     if(!myRank) {
-        printf("%f;%f;%f;%f;%f;%f\n", maxT.initTime, maxT.updTime, maxT.sendRecvTime, maxT.evolveTime, maxT.saveTime, maxT.totalTime);
-        printf("%f;%f;%f;%f;%f;%f\n", avgT.initTime/NPEs, avgT.updTime/NPEs, avgT.sendRecvTime/NPEs, avgT.evolveTime/NPEs, avgT.saveTime/NPEs, avgT.totalTime/NPEs);
+        printf("%f;%f;%f;%f;%f;%f;%f;%f;%f\n", maxT.initACC, maxT.copyin, maxT.init, maxT.update, maxT.sendRecv, maxT.evolve, maxT.save, maxT.copyout, maxT.total);
+        printf("%f;%f;%f;%f;%f;%f;%f;%f;%f\n", avgT.initACC/NPEs, avgT.copyin/NPEs, avgT.init/NPEs, avgT.update/NPEs, avgT.sendRecv/NPEs, avgT.evolve/NPEs, avgT.save/NPEs, avgT.copyout/NPEs, avgT.total/NPEs);
     }
 }
 

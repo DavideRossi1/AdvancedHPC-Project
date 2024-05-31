@@ -2,12 +2,15 @@
 #include <mpi.h>
 
 struct Timer{
-    double initTime;
-    double updTime;
-    double sendRecvTime;
-    double evolveTime;
-    double saveTime;
-    double totalTime;
+    double initACC;
+    double copyin;
+    double init;
+    double update;
+    double sendRecv;
+    double evolve;
+    double save;
+    double copyout;
+    double total;
 
     double programStart;
     double evolveStart;

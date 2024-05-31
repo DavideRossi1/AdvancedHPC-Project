@@ -15,17 +15,30 @@ module load openmpi/4.1.6--nvhpc--23.11
 
 echo "Running on $SLURM_NNODES nodes"
 
+make clean
+make gpu
+
 size=1200
 nIter=10
-file=data/$size.csv
+file=data/gpu$size.csv
 
-make clean
-make cuda
-echo "init;update;sendrecv;evolve;save;total" >> $file
+echo "initacc;copyin;init;update;sendrecv;evolve;save;copyout;total" >> $file
 for nTasks in 1 2 4 8 16 32
 do
         echo $nTasks >> $file
-        mpirun -np $nTasks ./main $size $nIter >> $file
+        mpirun -np $nTasks ./jacobi.x $size $nIter >> $file
 done
+
+size=12000
+nIter=10
+file=data/gpu$size.csv
+
+echo "initacc;copyin;init;update;sendrecv;evolve;save;copyout;total" >> $file
+for nTasks in 1 2 4 8 16 32
+do
+        echo $nTasks >> $file
+        mpirun -np $nTasks ./jacobi.x $size $nIter >> $file
+done
+
 
 echo "Done"
