@@ -1,0 +1,70 @@
+# Exercise 2: Jacobi's Algorithm
+
+The second assignment consists of implementing the Jacobi's method to solve Laplace equation in a distributed memory environment, using the MPI library to communicate between processes and OpenACC to parallelize the computation on the GPU. The program is expected to run entirely on the GPU, without any data transfer between the CPU and the GPU during the computation. 
+
+Before digging into the implementation of the algorithm, let's first describe the problem and how to solve it.
+
+## Jacobi's algorithm using MPI
+
+Laplace's equation is a second-order partial differential equation, often written in the form
+
+$$
+\nabla^2 V = 0
+$$
+
+where $V$ is the unknown function of the spatial coordinates $x$, $y$, and $z$. The Laplace equation is named after Pierre-Simon Laplace, who first studied its properties. Solutions of Laplace's equation are called harmonic functions and are important in many areas of physics, including the study of electromagnetic fields, heat conduction and fluid dynamics. In two dimensions, Laplace's equation is given by
+
+$$
+\frac{\partial^2 V}{\partial x^2} + \frac{\partial^2 V}{\partial y^2} = 0
+$$
+
+whose solution can be iteratively found through Jacobi's method: if we discretize the domain in a grid of points, the value of each point can be updated as the average of its neighbors. The algorithm is as follows:
+
+1. Initialize the grid with the boundary conditions and the initial guess for the solution;
+2. Iterate over the grid points, updating each point as the average of its neighbors:
+$$
+V_{i,j}^{k+1} = \frac{1}{4} \left( V_{i-1,j}^k + V_{i+1,j}^k + V_{i,j-1}^k + V_{i,j+1}^k \right)
+$$
+3. Repeat step 2 until a desired convergence criterion is met.
+
+Since at each iteration each point is updated independently on the others, this algorithm clearly opens the door to parallelization: each process can be assigned a subgrid of the domain, and the communication between processes is needed only at the boundaries of the subgrids. In this assignment, we will consider the domain to be distributed by rows among the processes, hence each process will have a subgrid with a fixed number of rows of the entire grid (equal to the number of rows of the entire grid divided by the number of processes, plus two more rows, one above and one below, that will be needed to perform the update). Since in general the number of rows of the grid is not divisible by the number of processes, some processes will actually have one more row than the others:
+
+![worksharing](imgs/worksharing.png)
+
+The idea to compute the solution is the following: each process has two matrices, one for the current iteration and one for the next iteration, which are swapped at each iteration, and it:
+- initializes the matrices as desired: the first matrix is filled with zeros, the second one with $0.5$, both with the same boundary conditions:
+
+    ![init](imgs/init.png)
+
+    this is done using 4 loops:
+    - one to initialize both matrices with zeros;
+    - one to set $0.5$ for the internal points of the second matrix;
+    - one to set the first column;
+    - one, exclusively for the last process, to set the last row;
+
+- iteratively updates the values of the old matrix using the new matrix: at each iteration:
+  - updates the values of the internal points of the subgrid (hence excluding its first and last row):
+    ![update](imgs/update.png)
+  - exchanges the first and last row with the neighboring processes, to update the boundary points:
+    ![sendrec](imgs/sendrec.png)
+  - swaps the pointers to the matrices, so that the new matrix becomes the old one and vice versa.
+  
+**Note**: to further improve performances on CPU, OpenMP has been used to parallelize both the initialization and the update of the matrices, in case GPU is not available.
+
+## Adding OpenACC
+
+The Jacobi's method is a perfect candidate for GPU acceleration, and OpenACC offers simple and powerful instruments to do so. The main idea is to generate a `data` region to allocate the matrix on the GPU and perform both initialization and update there:
+
+![accdata](imgs/accdata.png)
+
+Both initialization and update can then be parallelized using the `parallel loop` directive:
+
+![initacc](imgs/initacc.png)
+This is only one of the 4 loops that are parallelized in the initialization phase.
+
+![updacc](imgs/updacc.png)
+
+
+## Results
+
+

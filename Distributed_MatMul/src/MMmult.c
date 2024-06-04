@@ -28,11 +28,11 @@ void matMul(double *A, double *B, double *C, uint nRowsA, uint nColsARowsB, uint
     cublasCreate(&handle);
     const double alpha = 1.0;
     const double beta = 0.0;
-    timings->resAllocTime += end(t);
+    t->resAlloc += end(t);
     start(t);
     cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, nColsB, nRowsA,
         nColsARowsB, &alpha, B_dev, nColsB, A, nColsARowsB, &beta, myCBlock_dev, nColsB);
-    timings->dgemmTime += end(t);
+    t->dgemm += end(t);
     start(t);
     cudaMemcpy(myCBlock, myCBlock_dev, nRowsA*nColsB*sizeof(double), cudaMemcpyDeviceToHost);
     placeBlockInMatrix(myCBlock, C, nRowsA, nColsB, nColsARowsB, startingCol);
@@ -40,26 +40,25 @@ void matMul(double *A, double *B, double *C, uint nRowsA, uint nColsARowsB, uint
     cudaFree(B_dev);
     cudaFree(myCBlock_dev);
     cublasDestroy(handle);
-    timings->placeTime += end(t);
+    t->place += end(t);
   #else
   #ifdef CBLAS
     start(t);
     double *myCBlock = (double *)malloc(nRowsA * nColsB * sizeof(double));
-    memset(myCBlock, 0, nRowsA * nColsB * sizeof(double));
-    t->resAllocTime += end(t);
+    t->resAlloc += end(t);
     start(t);
     cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, nRowsA, nColsB,
                 nColsARowsB, 1.0, A, nColsARowsB, B, nColsB, 0.0, myCBlock,nColsB);
-    t->dgemmTime += end(t);
+    t->dgemm += end(t);
     start(t);
     placeBlockInMatrix(myCBlock, C, nRowsA, nColsB, nColsARowsB, startingCol);
     free(myCBlock);
-    t->placeTime += end(t);
+    t->place += end(t);
   #else
     for (uint i = 0; i < nRowsA; i++)
       for (uint j = 0; j < nColsB; j++)
         for (uint k = 0; k < nColsARowsB; k++)
-          C[i * nColsARowsB + startingCol + j] += A[i * nColsARowsB + k] * B[k * nColsB + j];
+          C[i*nColsARowsB + j + startingCol] += A[i*nColsARowsB + k] * B[k*nColsB + j];
   #endif
   #endif
 }

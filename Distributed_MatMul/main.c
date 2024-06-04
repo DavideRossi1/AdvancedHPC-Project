@@ -47,7 +47,7 @@ int main(int argc, char** argv)
     double* myB = (double*)malloc(myByteDim);
     double* myC = (double*)malloc(myByteDim);
     initAndPrintMatrices(myA, myB, myC, myNRows, N, myRank, NPEs);
-    t.initTime = end(&t);
+    t.init = end(&t);
     #ifdef DEBUG
         printMatrixThrSafe(myA, myNRows, N, myRank, NPEs);
         printMatrixThrSafe(myB, myNRows, N, myRank, NPEs);
@@ -72,10 +72,10 @@ int main(int argc, char** argv)
         readBlockFromMatrix(myBblock, myB, myNRows, nColumnsBblock, N, startPoint);
         columnB = (double*)malloc(nColumnsBblock*N*sizeof(double));
         buildRecvCountsAndDispls(recvcounts, displs, NPEs, N, i);
-        t.initCommTime += end(&t);
+        t.initComm += end(&t);
         start(&t);
         MPI_Allgatherv(myBblock, myNRows*nColumnsBblock, MPI_DOUBLE, columnB, recvcounts, displs, MPI_DOUBLE, MPI_COMM_WORLD);
-        t.gatherTime += end(&t);
+        t.gather += end(&t);
         t.multStart = MPI_Wtime();
         #ifdef CUDA
             matMul(A_dev, columnB, myC, myNRows, N, nColumnsBblock, startPoint, &t);
@@ -83,7 +83,7 @@ int main(int argc, char** argv)
             matMul(myA, columnB, myC, myNRows, N, nColumnsBblock, startPoint, &t);
         #endif
         MPI_Barrier(MPI_COMM_WORLD);
-        t.multTime += MPI_Wtime() - t.multStart;
+        t.mult += MPI_Wtime() - t.multStart;
         free(myBblock);
         free(columnB);
     } 
@@ -100,7 +100,7 @@ int main(int argc, char** argv)
     free(recvcounts);
     free(displs);
     MPI_Barrier(MPI_COMM_WORLD);
-    t.totalTime = MPI_Wtime() - t.programStart;
+    t.total = MPI_Wtime() - t.programStart;
     printTimings(&t, myRank, NPEs);
     MPI_Finalize();
     return 0;
