@@ -13,20 +13,31 @@ Matrix-matrix multiplication is a fundamental operation in linear algebra and a 
 - matrices are saved by rows in contiguous memory;
 - each of the three matrices is distributed among the processes.
 
-For this assignment, we will consider the matrices to be distributed by rows among the processes, hence each process will have a submatrix, which we will call $A_{loc}$, $B_{loc}$ and $C_{loc}$, with a fixed number of rows of each matrix (equal to the number of rows of the entire matrix divided by the number of processes). Since in general the number of rows of the matrices is not divisible by the number of processes, some processes will actually have one more row than the others:
+For this assignment, we will consider the matrices to be distributed by rows among the processes, hence each process will have a submatrix, which we will call `myA`, `myB` and `myC`, with a fixed number of rows of each matrix (equal to the number of rows of the entire matrix divided by the number of processes). Since in general the number of rows of the matrices is not divisible by the number of processes, some processes will actually have one more row than the others:
 
 ![worksharing](imgs/workshare.png)
 
-The idea to compute the product is the following: iterate over the number of processes: at each iteration and for each process:
-- re-build a group of columns of $B$, named $B_{col}$, by gathering the necessary part from all the other processes;
-- compute $C_{block}=A_{loc}\times B_{col}$;
-- place the $C_{block}$ in the $C_{loc}$ matrix: the union of the $C_{block}$ of the current iteration will give a group of columns of the final matrix $C$.  
+The idea to compute the product is the following: iterate over the number of processes: at each iteration, each process:
+- re-builds a group of columns of $B$, named `columnB`, by gathering the necessary part from all the other processes;
+- computes `myCBlock = myA × columnB`;
+- places `myCBlock` in `myC`: the union of the `myCBlock`s of the current iteration will give a group of columns of the final matrix $C$.  
  
-Essentially, $C$ matrix is built by columns, where each process computes some rows of those columns:
+Essentially, $C$ matrix is built by columns: at iteration `i+1`, for `i=0,...NPEs-1`, each process computes its `myNRows` rows of a block of $k$ columns, where $k$ is the worksize of the `i`-th process.
 
-![matrix-matrix](imgs/matrix-matrix.png) (to be added)
+![matrix-matrix](imgs/mult.png)
 
-The code that does the iterations is:
+The product above is computed in 3 iterations, as:
+
+![it1](imgs/it1.png)
+
+![it2](imgs/it2.png)
+
+![it3](imgs/it3.png)
+
+where `columnB` is made by the current process part, in yellow, and the parts sent by the other two processes, in blue and pink, and `myCBlock`, in green, is computed and placed in the correct position in `myC`. Note that no process will ever store any of the matrices in their entirety, but only the part they need to compute their part of the product.
+
+
+The code that executes the iterations is:
 
 ![MMcode](imgs/MM_code.png)
 
@@ -38,11 +49,11 @@ The basic version of the algorithm is the naive implementation of the matrix-mat
 
 ![basic](imgs/basic.png)
 
-`startingCol` is a shift that allows to correctly position the $C_{block}$ in the $C_{loc}$ matrix. Except for this, the code is straightforward: each process computes its part of the $C_{loc}$ matrix by iterating over the rows of $A_{loc}$ and the columns of $B_{col}$.
+`startingCol` is a shift that allows to directly position `myCBlock` in `myC`. Except for this, the code is straightforward: each process computes its part of `myC` by iterating over the rows of `myA` and the columns of `columnB`.
 
 ## Improved CPU version
 
-The improved CPU version uses the BLAS library to compute the matrix-matrix multiplication. The BLAS library is a set of routines that provide standard building blocks for performing basic vector and matrix operations. The routine we are interested in is `dgemm`, which computes the matrix-matrix product of two matrices with double-precision elements. The code here is just a little bit more complex than the basic version: product and $C_{block}$ placement are split in two different steps:
+The improved CPU version uses the BLAS library to compute the matrix-matrix multiplication. The BLAS library is a set of routines that provide standard building blocks for performing basic vector and matrix operations. The routine we are interested in is `dgemm`, which computes the matrix-matrix product of two matrices with double-precision elements. The code here is just a little bit more complex than the basic version: product and `myCBlock` placement are split in two different steps:
 
 ![blas](imgs/blas.png)
 
@@ -50,13 +61,13 @@ Notice that, to avoid losing performances, we are specifying to `dgemm` that we 
 
 ## GPU version
 
-GPU execution, which is managed by CUDA, requires some more steps with respect to the previous two versions:
+GPU execution, which is done with CUDA, requires some more steps with respect to the previous two versions:
 
 ![cuda](imgs/cuda.png)
 
-- allocate memory on the GPU for the matrices: $A_{loc}$ is allocated before the main loop since it is fixed, but $B_{col}$ and consequently $C_{block}$ need to be allocated at each iteration since their size changes;
-- copy $B_{col}$ from the CPU to the GPU, and allocate memory on the CPU for the $C_{block}$;
-- execute the product (ths time on the GPU using the `cublasDgemm` function) and copy the result back to the CPU;
-- place the $C_{block}$ in the $C_{loc}$ matrix.
+- allocate memory for the matrices on GPU: `myA` has already been allocated before the main loop since it is fixed, but `columnB` and consequently `myCBlock` change size at each iteration, hence we need to allocate memory for them every time;
+- copy `columnB` from CPU to GPU, and allocate memory on CPU for `myCBlock`;
+- execute the product (this time on GPU using the `cublasDgemm` function) and copy the result back to CPU;
+- place `myCBlock` in `myC`.
 
 ## Results

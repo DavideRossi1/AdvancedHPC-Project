@@ -1,6 +1,6 @@
 # Exercise 2: Jacobi's Algorithm
 
-The second assignment consists of implementing the Jacobi's method to solve Laplace equation in a distributed memory environment, using the MPI library to communicate between processes and OpenACC to parallelize the computation on the GPU. The program is expected to run entirely on the GPU, without any data transfer between the CPU and the GPU during the computation. 
+The second assignment consists of implementing the Jacobi's method to solve Laplace equation in a distributed memory environment, using the MPI library to communicate between processes and OpenACC to parallelize the computation on GPU. The program is expected to run entirely on GPU, without any data transfer between CPU and GPU in the middle of the computation. 
 
 Before digging into the implementation of the algorithm, let's first describe the problem and how to solve it.
 
@@ -27,9 +27,19 @@ V_{i,j}^{k+1} = \frac{1}{4} \left( V_{i-1,j}^k + V_{i+1,j}^k + V_{i,j-1}^k + V_{
 $$
 3. Repeat step 2 until a desired convergence criterion is met.
 
-Since at each iteration each point is updated independently on the others, this algorithm clearly opens the door to parallelization: each process can be assigned a subgrid of the domain, and the communication between processes is needed only at the boundaries of the subgrids. In this assignment, we will consider the domain to be distributed by rows among the processes, hence each process will have a subgrid with a fixed number of rows of the entire grid (equal to the number of rows of the entire grid divided by the number of processes, plus two more rows, one above and one below, that will be needed to perform the update). Since in general the number of rows of the grid is not divisible by the number of processes, some processes will actually have one more row than the others:
+Since at each iteration each point is updated independently on the others, this algorithm clearly opens the door to parallelization: each process can be assigned a subgrid of the domain, and the communication between processes is only needed at the boundaries of the subgrids.
+
+### Distribute the domain
+
+In this assignment, we will consider the domain to be distributed by rows among the processes, hence each process will have a subgrid with a fixed number of rows of the entire grid (equal to the number of rows of the entire grid divided by the number of processes, plus two more rows, one above and one below, that will be needed to perform the update). Since in general the number of rows of the grid is not divisible by the number of processes, some processes will actually have one more row than the others:
 
 ![worksharing](imgs/worksharing.png)
+
+For example, if `dim`$=9$ and `NPEs`$=3$, we have the situation showed in the following picture:
+
+![worksharing](imgs/sendrecgraph.png)
+
+each process will have a subgrid with 3 rows, plus 2 ghost rows, one above and one below, to perform the update. Each process will then send its semilast row, and receive its last row, to/from the upper process, and send its second row, and receive its first row, to/from the lower process. First (last) process will send and receive only one row, since its first (last) row is a fixed boundary condition.
 
 The idea to compute the solution is the following: each process has two matrices, one for the current iteration and one for the next iteration, which are swapped at each iteration, and it:
 - initializes the matrices as desired: the first matrix is filled with zeros, the second one with $0.5$, both with the same boundary conditions:
