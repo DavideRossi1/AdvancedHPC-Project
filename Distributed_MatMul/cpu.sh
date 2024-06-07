@@ -20,7 +20,7 @@ size=5000
 file=data/naive$size.csv
 make clean
 make naive
-echo "Init;initComm;gather;resAlloc;dGemm;place;mult;total" >> $file
+echo "initCuda;init;initComm;gather;resAlloc;dGemm;place;mult;total" >> $file
 for nNodes in 1 2 4 8 16
         do mpirun -np $nNodes ./main $size >> $file
 done
@@ -28,7 +28,7 @@ done
 file=data/cpu$size.csv
 make clean
 make cpu
-echo "Init;initComm;gather;resAlloc;dGemm;place;mult;total" >> $file
+echo "initCuda;init;initComm;gather;resAlloc;dGemm;place;mult;total" >> $file
 for nNodes in 1 2 4 8 16
 do
         do mpirun -np $nNodes ./main $size >> $file

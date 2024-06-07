@@ -3,6 +3,7 @@
 
 // Timer struct, contains the results of the different phases of the program
 struct Timer{
+    double initCuda;
     double init;
     double initComm;
     double gather;

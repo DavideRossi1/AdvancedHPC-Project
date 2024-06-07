@@ -17,7 +17,7 @@ void initID(double* matrix, uint nRows, uint nCols, uint myRank, uint NPEs)
     size_t shift = myRank*nRows + (myRank < nCols % NPEs ? 0 : nCols % NPEs);
 #pragma omp parallel for
     for (uint i = 0; i < nRows; i++) 
-        matrix[i*nCols + shift + i] = 1;
+        matrix[i*nCols + shift + i] = 2;
 }
 
 void initRandom(double* matrix, size_t nElements)
@@ -27,14 +27,14 @@ void initRandom(double* matrix, size_t nElements)
         matrix[i] = (double)rand() / RAND_MAX;
 }
 
-void initAndPrintMatrices(double* myA, double* myB, double* myC, uint nRows, uint nCols, uint myRank, uint NPEs)
+void initAll(double* myA, double* myB, double* myC, uint nRows, uint nCols, uint myRank, uint NPEs)
 {
     memset(myC, 0, nRows*nCols*sizeof(double));
     #ifdef DEBUG
         initID(myA, nRows, nCols,  myRank, NPEs);
         initOrder(myB, nRows, nCols, myRank, NPEs);
     #else
-        initRandom(myA, nCols*nRows);
-        initRandom(myB, nCols*nRows);
+        initRandom(myA, nRows*nCols);
+        initRandom(myB, nRows*nCols);
     #endif
 }

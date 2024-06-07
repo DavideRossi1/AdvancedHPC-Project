@@ -1,14 +1,16 @@
 #include <stdio.h>
+#ifdef CBLAS
+  #include <cblas.h>
+#endif
 #ifdef CUDA
     #include <cuda_runtime.h>
+    #include <cublas_v2.h>
 #endif
 
 #include "print.h"
 #include "init.h"
-#include "MMmult.h"
+#include "utilities.h"
 #include "timer.h"
-
-void buildRecvCountsAndDispls(int* recvcounts, int* displs, uint NPEs, uint N, uint colID);
 
 //void printArray(int* array, uint size);
 
@@ -29,48 +31,62 @@ int main(int argc, char** argv)
     MPI_Barrier(MPI_COMM_WORLD);
     t.programStart = MPI_Wtime();
     #ifdef CUDA
-        int ngpus=-1;
+        start(&t);
+        int ngpus=0;
         cudaGetDeviceCount(&ngpus);
         if (!ngpus){
             fprintf(stderr, "No NVIDIA GPU found\n");
             return 1;
         }
         cudaSetDevice(myRank % ngpus);
+        t.initCuda = end(&t);
     #endif
+    start(&t);
     const uint workSize = N / NPEs;
     const uint workSizeRem = N % NPEs;
     const uint myNRows = workSize + ((uint)myRank < workSizeRem ? 1 : 0);
-    const size_t myByteDim = myNRows * N * sizeof(double);
+    const size_t myByteDim       = myNRows * N * sizeof(double);
+    const size_t maxBlockByteDim = myNRows * (workSize+1) * sizeof(double);
 
-    start(&t);
     double* myA = (double*)malloc(myByteDim);
     double* myB = (double*)malloc(myByteDim);
     double* myC = (double*)malloc(myByteDim);
-    initAndPrintMatrices(myA, myB, myC, myNRows, N, myRank, NPEs);
+    t.resAlloc = end(&t);
+    start(&t);
+    initAll(myA, myB, myC, myNRows, N, myRank, NPEs);
     t.init = end(&t);
     #ifdef DEBUG
         printMatrixThrSafe(myA, myNRows, N, myRank, NPEs);
         printMatrixThrSafe(myB, myNRows, N, myRank, NPEs);
     #endif
-    int* recvcounts = (int*)malloc(NPEs*sizeof(int));
-    int* displs = (int*)malloc(NPEs*sizeof(int));
-    double* myBblock;
-    double* columnB;
+    start(&t);
+    int *recvcounts = (int*)malloc(NPEs*sizeof(int));
+    int *displs     = (int*)malloc(NPEs*sizeof(int));
+
+    // allocate columnB, Bblock and Cblock with the maximum space they will require
+    double *columnB  = (double*)malloc((workSize+1)*N*sizeof(double));
+    double *myBblock = (double*)malloc(maxBlockByteDim);
+    double *myCBlock = (double*)malloc(maxBlockByteDim);
     uint nColumnsBblock, startPoint;
     #ifdef CUDA
-        double* A_dev;
+        double *A_dev, *B_dev, *myCBlock_dev;
         cudaMalloc((void**) &A_dev, myByteDim);
         cudaMemcpy(A_dev, myA, myByteDim, cudaMemcpyHostToDevice);
+        cudaMalloc((void**) &B_dev, (workSize+1)*N*sizeof(double));
+        cudaMalloc((void**)&myCBlock_dev, maxBlockByteDim);
+        cublasHandle_t handle;
+        cublasCreate(&handle);
+        const double alpha = 1.0;
+        const double beta = 0.0;
     #endif
+    t.resAlloc += end(&t);
 
     for(uint i = 0; i < (uint)NPEs; i++)
     {
         start(&t);
         nColumnsBblock = workSize + (i < workSizeRem ? 1 : 0);
         startPoint = i*workSize + (i < workSizeRem ? i : workSizeRem);
-        myBblock = (double*)malloc(nColumnsBblock*myNRows*sizeof(double));
         readBlockFromMatrix(myBblock, myB, myNRows, nColumnsBblock, N, startPoint);
-        columnB = (double*)malloc(nColumnsBblock*N*sizeof(double));
         buildRecvCountsAndDispls(recvcounts, displs, NPEs, N, i);
         t.initComm += end(&t);
         start(&t);
@@ -78,42 +94,57 @@ int main(int argc, char** argv)
         t.gather += end(&t);
         t.multStart = MPI_Wtime();
         #ifdef CUDA
-            matMul(A_dev, columnB, myC, myNRows, N, nColumnsBblock, startPoint, &t);
+            start(&t);
+            cudaMemcpy(B_dev, columnB, nColumnsBblock*N*sizeof(double), cudaMemcpyHostToDevice);
+            t.resAlloc += end(&t);
+            start(&t);
+            cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, nColumnsBblock, myNRows,
+                    N, &alpha, B_dev, nColumnsBblock, A_dev, N, &beta, myCBlock_dev, nColumnsBblock);
+            t.dgemm += end(&t);
+            start(&t);
+            cudaMemcpy(myCBlock, myCBlock_dev, myNRows*nColumnsBblock*sizeof(double), cudaMemcpyDeviceToHost);
+            t.resAlloc += end(&t);
+            start(&t);
+            placeBlockInMatrix(myCBlock, myC, myNRows, nColumnsBblock, N, startPoint);
+            t.place += end(&t);
+        #elif defined(CBLAS)
+            start(&t);
+            cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, myNRows, nColumnsBblock,
+                N, 1.0, myA, N, columnB, nColumnsBblock, 0.0, myCBlock, nColumnsBblock);
+            t.dgemm += end(&t);
+            start(&t);
+            placeBlockInMatrix(myCBlock, myC, myNRows, nColumnsBblock, N, startPoint);
+            t.place += end(&t);
         #else
-            matMul(myA, columnB, myC, myNRows, N, nColumnsBblock, startPoint, &t);
+            start(&t);
+            naiveMult(myA, columnB, myC, myNRows, N, nColumnsBblock, startPoint);
+            t.dgemm += end(&t);
         #endif
         MPI_Barrier(MPI_COMM_WORLD);
         t.mult += MPI_Wtime() - t.multStart;
-        free(myBblock);
-        free(columnB);
     } 
     MPI_Barrier(MPI_COMM_WORLD);
     #ifdef DEBUG
         printMatrixThrSafe(myC, myNRows, N, myRank, NPEs);
     #endif
+    t.total = MPI_Wtime() - t.programStart;
     #ifdef CUDA
         cudaFree(A_dev);
+        cudaFree(B_dev);
+        cudaFree(myCBlock_dev);
+        cublasDestroy(handle);
     #endif
     free(myA);
     free(myB);
     free(myC);
+    free(myBblock);
+    free(myCBlock);
+    free(columnB);
     free(recvcounts);
     free(displs);
-    MPI_Barrier(MPI_COMM_WORLD);
-    t.total = MPI_Wtime() - t.programStart;
     printTimings(&t, myRank, NPEs);
     MPI_Finalize();
     return 0;
-}
-
-void buildRecvCountsAndDispls(int* recvcounts, int* displs, uint NPEs, uint N, uint colID)
-{
-    uint nCols = N/NPEs + (colID < N % NPEs ? 1 : 0);
-    for(uint j=0; j<NPEs; j++){
-        uint nRows= N/NPEs + (j < N % NPEs ? 1 : 0);
-        recvcounts[j] = nRows*nCols;
-        displs[j] = j > 0 ? displs[j-1] + recvcounts[j-1] : 0;
-    }
 }
 
 // void printArray(int* array, uint size){

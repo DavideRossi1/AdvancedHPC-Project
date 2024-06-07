@@ -10,5 +10,5 @@ void initID(double* matrix, uint nRows, uint nCols, uint myRank, uint NPEs);
 // Initialize a matrix with random values
 void initRandom(double* matrix, size_t nElements);
 
-// Initialize and optionally print the three given matrices
-void initAndPrintMatrices(double* myA, double* myB, double* myC, uint nRows, uint nCols, uint myRank, uint NPEs);
+// Initialize the three given matrices
+void initAll(double* myA, double* myB, double* myC, uint nRows, uint nCols, uint myRank, uint NPEs);

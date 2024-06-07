@@ -24,7 +24,7 @@ file=data/gpu$size.csv
 make clean
 make gpu
 
-echo "init;initComm;gather;resAlloc;dGemm;place;mult;total" >> $file
+echo "initCuda;init;initComm;gather;resAlloc;dGemm;place;mult;total" >> $file
 for nTasks in 1 2 4 8 16 32
 do
         echo $nTasks >> $file

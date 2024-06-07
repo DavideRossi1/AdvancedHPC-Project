@@ -12,7 +12,7 @@ CUDA=-DCUDA -lcublas -lcudart -lmpi -L/leonardo/prod/opt/libraries/openmpi/4.1.6
 
 OBJECTS=$(patsubst $(SRC)/%.c, $(OBJDIR)/%.o, $(wildcard $(SRC)/*.c))
 
-#FLAGS+=-DDEBUG
+FLAGS+=-DDEBUG
 
 naive: FLAGS+=$(OPT) $(OPENMP)
 naive: main
@@ -56,4 +56,4 @@ run:
 	@$(MAKE) $(FUNC) $(PRINTDIR)
 	@mpirun -np $(NP) ./main $(SZ)
 
-.PHONY: clean push pull run
+.PHONY: clean push pull run cpu gpu
