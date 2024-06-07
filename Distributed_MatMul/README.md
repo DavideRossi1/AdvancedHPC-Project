@@ -1,5 +1,19 @@
 # Exercise 1: Distributed Matrix-Matrix Multiplication
 
+## Table of Contents
+
+- [Exercise 1: Distributed Matrix-Matrix Multiplication](#exercise-1-distributed-matrix-matrix-multiplication)
+  - [Table of Contents](#table-of-contents)
+  - [Introduction](#introduction)
+  - [Matrix-Matrix Multiplication using MPI](#matrix-matrix-multiplication-using-mpi)
+  - [Basic version](#basic-version)
+  - [Improved CPU version](#improved-cpu-version)
+  - [GPU version](#gpu-version)
+  - [Results](#results)
+  - [How to run](#how-to-run)
+  
+## Introduction
+
 The first assignment consists of implementing a distributed matrix-matrix multiplication, using the MPI library to communicate between processes. More precisely, 3 versions of the algorithm are required:
 - a basic version with the naive algorithm (triple loop);
 - an improved CPU version using BLAS library;
@@ -71,3 +85,21 @@ GPU execution, which is done with CUDA, requires some more steps with respect to
 - place `myCBlock` in `myC`.
 
 ## Results
+
+
+## How to run
+
+A Makefile is provided to easily compile and run the code. The available targets are:
+
+- `make naive`: produce an executable running with the naive algorithm (triple loop);
+- `make cpu`: produce an executable running with the BLAS library; 
+- `make gpu`: produce an executable running with CUDA and CUBLAS library;
+- `make clean`: remove all the executables and the object files.
+
+After compilation, the executables can be run with `mpirun -np <np> ./main <size>`.
+
+The Makefile also provides some shortcuts to directly compile and run the code:
+
+- `make naiverun NP=<np> SZ=<size>`: equivalent to `make clean && make naive && mpirun -np <np> ./main <size>`;
+- `make cpurun NP=<np> SZ=<size>`: equivalent to `make clean && make cpu && mpirun -np <np> ./main <size>`;
+- `make gpurun NP=<np> SZ=<size>`: equivalent to `make clean && make gpu && mpirun -np <np> ./main <size>`.

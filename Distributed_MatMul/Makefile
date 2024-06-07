@@ -12,17 +12,17 @@ CUDA=-DCUDA -lcublas -lcudart -lmpi -L/leonardo/prod/opt/libraries/openmpi/4.1.6
 
 OBJECTS=$(patsubst $(SRC)/%.c, $(OBJDIR)/%.o, $(wildcard $(SRC)/*.c))
 
-FLAGS+=-DDEBUG
+#FLAGS+=-DDEBUG
 
-base: FLAGS+=$(OPT) $(OPENMP)
-base: main
+naive: FLAGS+=$(OPT) $(OPENMP)
+naive: main
 
-blas: FLAGS+=$(CBLAS) $(OPT) $(OPENMP)
-blas: main
+cpu: FLAGS+=$(CBLAS) $(OPT) $(OPENMP)
+cpu: main
 
-cuda: FLAGS+=$(CUDA)
-cuda: CC=nvcc
-cuda: main
+gpu: FLAGS+=$(CUDA)
+gpu: CC=nvcc
+gpu: main
 
 main: $(OBJECTS) main.c
 	@$(CC) $(FLAGS) $^ -o $@
@@ -42,18 +42,18 @@ pull:
 	@git reset --hard
 	@git pull
 
-runBase: FUNC=base
-runBase: run
+naiverun: FUNC=naive
+naiverun: run
 
-runBlas: FUNC=blas
-runBlas: run
+cpurun: FUNC=cpu
+cpurun: run
 
-runCuda: FUNC=cuda
-runCuda: run
+gpurun: FUNC=gpu
+gpurun: run
 	
 run:
 	@$(MAKE) clean $(PRINTDIR)
 	@$(MAKE) $(FUNC) $(PRINTDIR)
 	@mpirun -np $(NP) ./main $(SZ)
 
-.PHONY: clean push pull
+.PHONY: clean push pull run

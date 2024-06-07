@@ -1,24 +1,24 @@
-# inputs for the executables
 CC=mpicc
 INCLUDE=include
 OBJDIR=obj
 SRC=src
 PRINTDIR=--no-print-directory
 
-FLAGS=-O3 -I$(INCLUDE) -Wall -Wextra -march=native #-Wno-unknown-pragmas
-ACC=-acc -Minfo=all
+FLAGS=-O3 -I$(INCLUDE) 
+OPT=-Wall -Wextra -march=native #-Wno-unknown-pragmas
 OPENMP=-fopenmp
+ACC=-acc -Minfo=all
 
 OBJECTS=$(patsubst $(SRC)/%.c, $(OBJDIR)/%.o, $(wildcard $(SRC)/*.c))
 
 #FLAGS+=-DDEBUG
-FLAGS+=-DSAVEPLOT
-
-gpu: FLAGS+=$(ACC)
-gpu: jacobi.x
+FLAGS+=$(OPT)
 
 cpu: FLAGS+=$(OPENMP)
 cpu: jacobi.x
+
+gpu: FLAGS+=$(ACC)
+gpu: jacobi.x
 
 jacobi.x: $(OBJECTS) jacobi.c
 	@$(CC) $(FLAGS) $^ -o $@
@@ -26,12 +26,12 @@ $(OBJDIR)/%.o: $(SRC)/%.c
 	@mkdir -p $(OBJDIR)
 	@$(CC) $(FLAGS) -c $^ -o $@
 
-plot:
-	@gnuplot -p plot.plt
-	
 clean:
 	@rm -rf jacobi.x solution.dat $(OBJDIR)
 
+plot:
+	@gnuplot -p plot.plt
+	
 push:
 	@$(MAKE) clean $(PRINTDIR)
 	@git add .
@@ -41,11 +41,17 @@ pull:
 	@git reset --hard
 	@git pull
 
-runcpu: FUNC=cpu
-runcpu: run
+cpusave: FLAGS+=-DSAVEPLOT
+cpusave: cpu
 
-rungpu: FUNC=gpu
-rungpu: run
+gpusave: FLAGS+=-DSAVEPLOT
+gpusave: gpu
+
+cpurun: FUNC=cpusave 
+cpurun: run
+
+gpurun: FUNC=gpusave
+gpurun: run
 
 run:
 	@$(MAKE) clean $(PRINTDIR)
