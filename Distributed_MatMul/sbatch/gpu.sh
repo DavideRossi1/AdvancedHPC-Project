@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --no-requeue
-#SBATCH --job-name="gpu-test"
+#SBATCH --job-name="gpu-matMul"
 #SBATCH --account ict24_dssc_gpu
 #SBATCH --partition=boost_usr_prod
 #SBATCH --nodes=8
@@ -18,15 +18,16 @@ echo "Running on $SLURM_NNODES nodes"
 export OMP_PLACES=cores
 export OMP_PROC_BIND=close
 
-size=50000
+size=45000
 file=data/gpu$size.csv
 
 make clean
-make cuda
+make gpu
+
 echo "init;initComm;gather;resAlloc;dGemm;place;mult;total" >> $file
 for nTasks in 1 2 4 8 16 32
 do
-        echo nTasks >> $file
+        echo $nTasks >> $file
         mpirun -np $nTasks ./main $size >> $file
 done
 
