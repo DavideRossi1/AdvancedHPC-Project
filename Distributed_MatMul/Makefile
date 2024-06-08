@@ -4,31 +4,49 @@ OBJDIR=obj
 SRC=src
 PRINTDIR=--no-print-directory
 
-FLAGS=-O3 -I$(INCLUDE)
-OPT=-Wall -Wextra -march=native
+CFLAGS=-I$(INCLUDE)
+MAINFLAGS=$(CFLAGS)
+LINKFLAGS=$(CFLAGS)
+
+OPT=-Wall -Wextra -march=native -O3
 OPENMP=-fopenmp
 CBLAS=-DCBLAS -lopenblas
-CUDA=-DCUDA -lcublas -lcudart -lmpi -L/leonardo/prod/opt/libraries/openmpi/4.1.6/nvhpc--23.11/lib
+CUDA=-DCUDA
+COMPCAPABILITY=-arch=sm_80
+MAIN=main.c
+LDFLAGS=-lcublas -lcudart -lmpi -L/leonardo/prod/opt/libraries/openmpi/4.1.6/nvhpc--23.11/lib
 
-OBJECTS=$(patsubst $(SRC)/%.c, $(OBJDIR)/%.o, $(wildcard $(SRC)/*.c))
+OBJECTS=$(OBJDIR)/main.o $(patsubst $(SRC)/%.c, $(OBJDIR)/%.o, $(wildcard $(SRC)/*.c))
 
-FLAGS+=-DDEBUG
+CFLAGS+=-DDEBUG
 
-naive: FLAGS+=$(OPT) $(OPENMP)
+naive: CFLAGS+=$(OPT) $(OPENMP)
 naive: main
 
-cpu: FLAGS+=$(CBLAS) $(OPT) $(OPENMP)
+cpu: CFLAGS+=$(CBLAS) $(OPT) $(OPENMP)
 cpu: main
 
-gpu: FLAGS+=$(CUDA)
+gpu: CFLAGS+=$(CUDA)
+gpu: MAINFLAGS+=$(COMPCAPABILITY)
+gpu: LINKFLAGS=$(LDFLAGS)
 gpu: CC=nvcc
+gpu: MAIN=main.cu
+gpu: prepare_main
 gpu: main
+gpu: cleanup_main
 
-main: $(OBJECTS) main.c
-	@$(CC) $(FLAGS) $^ -o $@
-$(OBJDIR)/%.o: $(SRC)/%.c
+main: $(OBJECTS)
+	@$(CC) $(LINKFLAGS) $^ -o $@
+$(OBJDIR)/main.o:
 	@mkdir -p $(OBJDIR)
-	@$(CC) $(FLAGS) -c $^ -o $@
+	@$(CC) $(MAINFLAGS) -c $(MAIN) -o $@
+$(OBJDIR)/%.o: $(SRC)/%.c
+	@mpicc $(CFLAGS) -c $< -o $@
+
+prepare_main:
+	@mv main.c main.cu
+cleanup_main:
+	@mv main.cu main.c
 
 clean:
 	@rm -rf main $(OBJDIR)

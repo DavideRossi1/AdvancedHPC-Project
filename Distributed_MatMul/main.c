@@ -12,6 +12,17 @@
 #include "utilities.h"
 #include "timer.h"
 
+#ifdef CUDA
+__global__ void placeBlockInMatrixKernel(double *block, double *matrix, uint nBlockRows, uint nBlockCols, uint nMatrixCols, uint startingCol) {
+    uint i = blockIdx.x * blockDim.x + threadIdx.x;
+    uint j = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (i < nBlockRows && j < nBlockCols) {
+        matrix[i * nMatrixCols + j + startingCol] = block[i * nBlockCols + j];
+    }
+}
+#endif
+
 //void printArray(int* array, uint size);
 
 //int MPI_Allgatherv_L(const void *sendbuf, size_t sendcount, MPI_Datatype sendtype, void *recvbuf, const size_t *recvcounts, const size_t *displs, MPI_Datatype recvtype, MPI_Comm comm, int myRank, int NPEs);
@@ -69,15 +80,17 @@ int main(int argc, char** argv)
     double *myCBlock = (double*)malloc(maxBlockByteDim);
     uint nColumnsBblock, startPoint;
     #ifdef CUDA
-        double *A_dev, *B_dev, *myCBlock_dev;
+        double *A_dev, *B_dev, *myCBlock_dev, *C_dev;
         cudaMalloc((void**) &A_dev, myByteDim);
         cudaMemcpy(A_dev, myA, myByteDim, cudaMemcpyHostToDevice);
         cudaMalloc((void**) &B_dev, (workSize+1)*N*sizeof(double));
+        cudaMalloc((void**) &C_dev, myByteDim);
         cudaMalloc((void**)&myCBlock_dev, maxBlockByteDim);
         cublasHandle_t handle;
         cublasCreate(&handle);
         const double alpha = 1.0;
         const double beta = 0.0;
+        dim3 threadsPerBlock(16, 16);
     #endif
     t.resAlloc += end(&t);
 
@@ -102,10 +115,9 @@ int main(int argc, char** argv)
                     N, &alpha, B_dev, nColumnsBblock, A_dev, N, &beta, myCBlock_dev, nColumnsBblock);
             t.dgemm += end(&t);
             start(&t);
-            cudaMemcpy(myCBlock, myCBlock_dev, myNRows*nColumnsBblock*sizeof(double), cudaMemcpyDeviceToHost);
-            t.resAlloc += end(&t);
-            start(&t);
-            placeBlockInMatrix(myCBlock, myC, myNRows, nColumnsBblock, N, startPoint);
+            dim3 numBlocks((myNRows + threadsPerBlock.x - 1) / threadsPerBlock.x,
+                    (nColumnsBblock + threadsPerBlock.y - 1) / threadsPerBlock.y);
+            placeBlockInMatrixKernel<<<numBlocks, threadsPerBlock>>>(myCBlock_dev, C_dev, myNRows, nColumnsBblock, N, startPoint);
             t.place += end(&t);
         #elif defined(CBLAS)
             start(&t);
@@ -118,12 +130,21 @@ int main(int argc, char** argv)
         #else
             start(&t);
             naiveMult(myA, columnB, myC, myNRows, N, nColumnsBblock, startPoint);
+            // for (uint i = 0; i < myNRows; i++)
+            //     for (uint j = 0; j < nColumnsBblock; j++)
+            //         for (uint k = 0; k < N; k++)
+            //             myC[i*N + j + startPoint] += myA[i*N + k] * columnB[k*N + j];
             t.dgemm += end(&t);
         #endif
         MPI_Barrier(MPI_COMM_WORLD);
         t.mult += MPI_Wtime() - t.multStart;
     } 
     MPI_Barrier(MPI_COMM_WORLD);
+    #ifdef CUDA
+        start(&t);
+        cudaMemcpy(myC, C_dev, myByteDim, cudaMemcpyDeviceToHost);
+        t.resAlloc += end(&t);
+    #endif
     #ifdef DEBUG
         printMatrixThrSafe(myC, myNRows, N, myRank, NPEs);
     #endif
@@ -131,6 +152,7 @@ int main(int argc, char** argv)
     #ifdef CUDA
         cudaFree(A_dev);
         cudaFree(B_dev);
+        cudaFree(C_dev);
         cudaFree(myCBlock_dev);
         cublasDestroy(handle);
     #endif

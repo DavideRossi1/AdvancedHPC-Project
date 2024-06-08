@@ -1,6 +1,10 @@
 #pragma once
 #include <mpi.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // Timer struct, contains the results of the different phases of the program
 struct Timer{
     double initCuda;
@@ -32,3 +36,7 @@ inline double end(struct Timer* t){
     MPI_Barrier(MPI_COMM_WORLD);
     return MPI_Wtime()- t->start;
 }
+
+#ifdef __cplusplus
+}
+#endif

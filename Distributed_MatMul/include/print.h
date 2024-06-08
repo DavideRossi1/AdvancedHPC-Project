@@ -1,6 +1,9 @@
 #pragma once
 #include <stdlib.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 // Print the matrix in a thread-safe way: build a string that is printed by the master process
 void printMatrixThrSafe(double *matrix, uint nRows, uint nCols, uint myRank, uint NPEs);
@@ -13,3 +16,7 @@ void printMatrixDistributed(double *matrix, uint nRows, uint nCols, uint myRank,
 
 // Print a matrix in a sequential way
 void printMatrix(double *matrix, uint nRows, uint nCols);
+
+#ifdef __cplusplus
+}
+#endif

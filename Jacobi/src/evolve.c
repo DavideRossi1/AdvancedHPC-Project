@@ -28,6 +28,6 @@ void evolve( double* matrix, double* matrix_new, size_t nRows, size_t nCols, int
                 &matrix_new[0],     nCols, MPI_DOUBLE, prev, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     MPI_Sendrecv(&matrix_new[(nRows-2)*nCols], nCols, MPI_DOUBLE, next, 0, 
                 &matrix_new[(nRows-1)*nCols], nCols, MPI_DOUBLE, next, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    t->sendRecv += end(t);
   }
+  t->sendRecv += end(t);
 }

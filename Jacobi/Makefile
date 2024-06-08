@@ -58,5 +58,5 @@ run:
 	@$(MAKE) $(FUNC) $(PRINTDIR)
 	@mpirun -np $(NP) ./jacobi.x $(SZ) $(IT)
 
-.PHONY: clean plot push pull run
+.PHONY: clean plot push pull run cpu gpu
 
