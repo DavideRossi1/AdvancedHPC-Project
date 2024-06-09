@@ -12,7 +12,7 @@ module load openmpi/4.1.6--nvhpc--23.11
 echo "Running on $SLURM_NNODES nodes"
 
 make clean
-make cpu
+make cpusave
 
 size=1200
 nIter=10

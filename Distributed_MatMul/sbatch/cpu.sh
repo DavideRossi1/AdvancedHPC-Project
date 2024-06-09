@@ -30,7 +30,6 @@ make clean
 make cpu
 echo "initCuda;init;initComm;gather;resAlloc;dGemm;place;mult;total" >> $file
 for nNodes in 1 2 4 8 16
-do
         do mpirun -np $nNodes ./main $size >> $file
 done
 
