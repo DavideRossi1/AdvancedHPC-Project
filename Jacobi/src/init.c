@@ -50,15 +50,12 @@ void init(double* matrix, double* matrix_new, size_t nRows, size_t nCols, int pr
     }
   }
   MPI_Barrier(MPI_COMM_WORLD);
-#pragma omp master
-  {
-    MPI_Sendrecv(&matrix[nCols], nCols, MPI_DOUBLE, prev, 1, 
-                &matrix[0],     nCols, MPI_DOUBLE, prev, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    MPI_Sendrecv(&matrix_new[nCols], nCols, MPI_DOUBLE, prev, 2, 
-                &matrix_new[0],     nCols, MPI_DOUBLE, prev, 3, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    MPI_Sendrecv(&matrix[(nRows-2)*nCols], nCols, MPI_DOUBLE, next, 0, 
-                &matrix[(nRows-1)*nCols], nCols, MPI_DOUBLE, next, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    MPI_Sendrecv(&matrix_new[(nRows-2)*nCols], nCols, MPI_DOUBLE, next, 3, 
-                &matrix_new[(nRows-1)*nCols], nCols, MPI_DOUBLE, next, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-  }
+  MPI_Sendrecv(&matrix[nCols], nCols, MPI_DOUBLE, prev, 1, 
+              &matrix[0],     nCols, MPI_DOUBLE, prev, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+  MPI_Sendrecv(&matrix_new[nCols], nCols, MPI_DOUBLE, prev, 2, 
+              &matrix_new[0],     nCols, MPI_DOUBLE, prev, 3, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+  MPI_Sendrecv(&matrix[(nRows-2)*nCols], nCols, MPI_DOUBLE, next, 0, 
+              &matrix[(nRows-1)*nCols], nCols, MPI_DOUBLE, next, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+  MPI_Sendrecv(&matrix_new[(nRows-2)*nCols], nCols, MPI_DOUBLE, next, 3, 
+              &matrix_new[(nRows-1)*nCols], nCols, MPI_DOUBLE, next, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 }

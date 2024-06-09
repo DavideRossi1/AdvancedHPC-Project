@@ -1,16 +1,13 @@
-# Exercise 1: Distributed Matrix-Matrix Multiplication
+# Exercise 1: Distributed Matrix-Matrix Multiplication <!-- omit in toc -->
 
-## Table of Contents
-
-- [Exercise 1: Distributed Matrix-Matrix Multiplication](#exercise-1-distributed-matrix-matrix-multiplication)
-  - [Table of Contents](#table-of-contents)
-  - [Introduction](#introduction)
-  - [Matrix-Matrix Multiplication using MPI](#matrix-matrix-multiplication-using-mpi)
-  - [Basic version](#basic-version)
-  - [Improved CPU version](#improved-cpu-version)
-  - [GPU version](#gpu-version)
-  - [Results](#results)
-  - [How to run](#how-to-run)
+## Table of Contents <!-- omit in toc -->
+- [Introduction](#introduction)
+- [Matrix-Matrix Multiplication using MPI](#matrix-matrix-multiplication-using-mpi)
+- [Basic version](#basic-version)
+- [Improved CPU version](#improved-cpu-version)
+- [GPU version](#gpu-version)
+- [Results](#results)
+- [How to run](#how-to-run)
   
 ## Introduction
 
@@ -31,6 +28,8 @@ For this assignment, we will consider the matrices to be distributed by rows amo
 
 ![worksharing](imgs/workshare.png)
 
+![matrix-matrix](imgs/mult.png)
+
 The idea to compute the product is the following: iterate over the number of processes: at each iteration, each process:
 - re-builds a group of columns of $B$, named `columnB`, by gathering the necessary part from all the other processes;
 - computes `myCBlock = myA × columnB`;
@@ -38,9 +37,7 @@ The idea to compute the product is the following: iterate over the number of pro
  
 Essentially, $C$ matrix is built by columns: at iteration `i+1`, for `i=0,...NPEs-1`, each process computes its `myNRows` rows of a block of $k$ columns, where $k$ is the worksize of the `i`-th process.
 
-![matrix-matrix](imgs/mult.png)
-
-The product above is computed in 3 iterations, as:
+For example, the product in the picture above is computed in 3 iterations, as:
 
 ![it1](imgs/it1.png)
 
@@ -55,7 +52,7 @@ The code that executes the iterations is:
 
 ![MMcode](imgs/MM_code.png)
 
-What the `matMul` function does depends on the version of the algorithm we are implementing. We'll now see some details about the three versions.
+Where the `matMul` part branches according to the version of the algorithm we are implementing. Let's have a look at some details about the three versions.
 
 ## Basic version
 
@@ -63,7 +60,7 @@ The basic version of the algorithm is the naive implementation of the matrix-mat
 
 ![basic](imgs/basic.png)
 
-`startingCol` is a shift that allows to directly position `myCBlock` in `myC`. Except for this, the code is straightforward: each process computes its part of `myC` by iterating over the rows of `myA` and the columns of `columnB`.
+`startPoint` is a shift that allows to directly position the computed values in `myC`, without using the support matrix `myCBlock`. Except for this, the code is straightforward: each process computes its part of `myC` by iterating over the rows of `myA` and the columns of `columnB`.
 
 ## Improved CPU version
 
@@ -71,18 +68,20 @@ The improved CPU version uses the BLAS library to compute the matrix-matrix mult
 
 ![blas](imgs/blas.png)
 
-Notice that, to avoid losing performances, we are specifying to `dgemm` that we don't want to transpose the matrices.
+We first compute the product and store it in `myCBlock`, then we place `myCBlock` in `myC`.
+
+Notice that we are specifying to `dgemm` that we don't want to transpose the matrices. This is done since we want to settle in a scenario were the original matrices are already given, all in the same format (a fixed number of rows for each process), hence gathering is necessary to perform the product.
 
 ## GPU version
 
-GPU execution, which is done with CUDA, requires some more steps with respect to the previous two versions:
+GPU execution, which is done with CUDA and CUBLAS library, requires one more step with respect to the previous version:
 
 ![cuda](imgs/cuda.png)
 
-- allocate memory for the matrices on GPU: `myA` has already been allocated before the main loop since it is fixed, but `columnB` and consequently `myCBlock` change size at each iteration, hence we need to allocate memory for them every time;
-- copy `columnB` from CPU to GPU, and allocate memory on CPU for `myCBlock`;
-- execute the product (this time on GPU using the `cublasDgemm` function) and copy the result back to CPU;
-- place `myCBlock` in `myC`.
+We first copy `columnB` to the GPU, then we compute the product and place it in `myCBlock` as in the previous case. Some interesting points to notice are:
+- all the matrices have already been preallocated on the GPU at the beginning of the execution, hence the only thing we are missing is the copy of `columnB`, which is built on the CPU at each iteration and then moved to the GPU;
+- `cublasDgemm`, the CUBLAS routine that performs the product, takes as input the matrices in column-major format by default, and we don't want to transpose them to avoid losing performances, hence we perform the product in the inverse order, exploiting the fact that $C=A\times B$ is equivalent to $C^T=B^T\times A^T$: in this way, the product output, which is saved in `myCBlock_dev`, is already in the correct format to be placed in `myC`;
+- to access `myCBlock_dev` and to modify `C_dev` we need to use a kernel function, since we are working on the GPU. Hence, we are only working on the GPU for the product and the placement of `myCBlock_dev` in `C_dev`: only at the end of the program `C_dev` is copied back to the CPU.
 
 ## Results
 

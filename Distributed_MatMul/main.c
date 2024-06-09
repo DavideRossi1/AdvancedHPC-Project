@@ -13,13 +13,12 @@
 #include "timer.h"
 
 #ifdef CUDA
-__global__ void placeBlockInMatrixKernel(double *block, double *matrix, uint nBlockRows, uint nBlockCols, uint nMatrixCols, uint startingCol) {
+__global__ void placeBlockInMatrixKernel(double *block, double *matrix, uint nBlockRows, uint nBlockCols, uint nMatrixCols, uint startingCol) 
+{
     uint i = blockIdx.x * blockDim.x + threadIdx.x;
     uint j = blockIdx.y * blockDim.y + threadIdx.y;
-
-    if (i < nBlockRows && j < nBlockCols) {
+    if (i < nBlockRows && j < nBlockCols)
         matrix[i * nMatrixCols + j + startingCol] = block[i * nBlockCols + j];
-    }
 }
 #endif
 
@@ -38,7 +37,7 @@ int main(int argc, char** argv)
     MPI_Init_thread(&argc, &argv,MPI_THREAD_MULTIPLE,&provided);
     MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
     MPI_Comm_size(MPI_COMM_WORLD, &NPEs);
-    struct Timer t = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; 
+    struct Timer t = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; 
     MPI_Barrier(MPI_COMM_WORLD);
     t.programStart = MPI_Wtime();
     #ifdef CUDA
@@ -80,10 +79,10 @@ int main(int argc, char** argv)
     double *myCBlock = (double*)malloc(maxBlockByteDim);
     uint nColumnsBblock, startPoint;
     #ifdef CUDA
-        double *A_dev, *B_dev, *myCBlock_dev, *C_dev;
+        double *A_dev, *columnB_dev, *myCBlock_dev, *C_dev;
         cudaMalloc((void**) &A_dev, myByteDim);
         cudaMemcpy(A_dev, myA, myByteDim, cudaMemcpyHostToDevice);
-        cudaMalloc((void**) &B_dev, (workSize+1)*N*sizeof(double));
+        cudaMalloc((void**) &columnB_dev, (workSize+1)*N*sizeof(double));
         cudaMalloc((void**) &C_dev, myByteDim);
         cudaMalloc((void**)&myCBlock_dev, maxBlockByteDim);
         cublasHandle_t handle;
@@ -91,6 +90,8 @@ int main(int argc, char** argv)
         const double alpha = 1.0;
         const double beta = 0.0;
         dim3 threadsPerBlock(16, 16);
+        dim3 numBlocks((myNRows + threadsPerBlock.x - 1) / threadsPerBlock.x,
+                    (workSize + 1 + threadsPerBlock.y - 1) / threadsPerBlock.y);
     #endif
     t.resAlloc += end(&t);
 
@@ -108,15 +109,13 @@ int main(int argc, char** argv)
         t.multStart = MPI_Wtime();
         #ifdef CUDA
             start(&t);
-            cudaMemcpy(B_dev, columnB, nColumnsBblock*N*sizeof(double), cudaMemcpyHostToDevice);
+            cudaMemcpy(columnB_dev, columnB, nColumnsBblock*N*sizeof(double), cudaMemcpyHostToDevice);
             t.resAlloc += end(&t);
             start(&t);
             cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, nColumnsBblock, myNRows,
-                    N, &alpha, B_dev, nColumnsBblock, A_dev, N, &beta, myCBlock_dev, nColumnsBblock);
+                    N, &alpha, columnB_dev, nColumnsBblock, A_dev, N, &beta, myCBlock_dev, nColumnsBblock);
             t.dgemm += end(&t);
             start(&t);
-            dim3 numBlocks((myNRows + threadsPerBlock.x - 1) / threadsPerBlock.x,
-                    (nColumnsBblock + threadsPerBlock.y - 1) / threadsPerBlock.y);
             placeBlockInMatrixKernel<<<numBlocks, threadsPerBlock>>>(myCBlock_dev, C_dev, myNRows, nColumnsBblock, N, startPoint);
             t.place += end(&t);
         #elif defined(CBLAS)
@@ -151,7 +150,7 @@ int main(int argc, char** argv)
     t.total = MPI_Wtime() - t.programStart;
     #ifdef CUDA
         cudaFree(A_dev);
-        cudaFree(B_dev);
+        cudaFree(columnB_dev);
         cudaFree(C_dev);
         cudaFree(myCBlock_dev);
         cublasDestroy(handle);

@@ -90,11 +90,13 @@ void printMatrix(double *matrix, uint nRows, uint nCols) {
   }
 }
 
-void save_gnuplot( double *M, size_t dim, uint firstRow, uint lastRow, uint shift)
+void save_gnuplot( double *M, size_t dim, uint firstRow, uint lastRow, uint shift, size_t it)
 {
   const double h = 0.1;
   MPI_File file;
-  MPI_File_open(MPI_COMM_WORLD, "solution.dat", MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &file);
+  char* filename = (char*)malloc(22*sizeof(char));
+  sprintf(filename, "output/solution%zu.dat", it);
+  MPI_File_open(MPI_COMM_WORLD, filename, MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &file);
   MPI_Offset of = shift*dim*3*sizeof(double);
   for (size_t i = firstRow; i < lastRow; i++){
     for (size_t j = 0; j < dim; j++){

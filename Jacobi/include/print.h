@@ -20,4 +20,4 @@ void printMatrixDistributed(double *matrix, uint nRows, uint nCols, uint myRank,
 // Print a matrix in a sequential way
 void printMatrix(double *matrix, uint nRows, uint nCols);
 
-void save_gnuplot( double *M, size_t dim, uint start, uint end, uint shift);
+void save_gnuplot( double *M, size_t dim, uint start, uint end, uint shift, size_t it);

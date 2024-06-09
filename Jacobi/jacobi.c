@@ -55,8 +55,8 @@ int main(int argc, char* argv[])
   double *matrix     = ( double* )malloc( my_byte_dim ); 
   double *matrix_new = ( double* )malloc( my_byte_dim );
   double *tmp_matrix;  
-  start(&t);
 
+  start(&t);
 #pragma acc data copy(matrix[:myWorkSize*dimWithEdge], matrix_new[:myWorkSize*dimWithEdge])
 {
   t.copyin = end(&t);
@@ -66,6 +66,10 @@ int main(int argc, char* argv[])
   #ifdef DEBUG
     printMatrixThrSafe(matrix, myWorkSize, dimWithEdge, myRank, NPEs);
     printMatrixThrSafe(matrix_new, myWorkSize, dimWithEdge, myRank, NPEs);
+  #endif
+  #ifdef SAVEGIF
+    save_gnuplot( matrix, dimWithEdge, 0, myWorkSize, shift, 0);
+    save_gnuplot( matrix_new, dimWithEdge, 0, myWorkSize, shift, 1);
   #endif
   // start algorithm
   MPI_Barrier(MPI_COMM_WORLD);
@@ -80,6 +84,9 @@ int main(int argc, char* argv[])
     #ifdef DEBUG
       printMatrixThrSafe(matrix, myWorkSize, dimWithEdge, myRank, NPEs);
     #endif
+    #ifdef SAVEGIF
+      save_gnuplot( matrix, dimWithEdge, 0, myWorkSize, shift, it+2);
+    #endif
   }
   MPI_Barrier(MPI_COMM_WORLD);
   t.evolve = MPI_Wtime() - t.evolveStart;
@@ -89,7 +96,7 @@ int main(int argc, char* argv[])
   // skip the first and last row, except for the first and last process
   uint firstRow = myRank ? 1 : 0;
   uint lastRow = myRank < NPEs-1 ? myWorkSize-1 : myWorkSize;
-  save_gnuplot( matrix, dimWithEdge, firstRow, lastRow, shift);
+  save_gnuplot( matrix, dimWithEdge, firstRow, lastRow, shift, 0);
   t.save = end(&t);
 #endif
   start(&t);

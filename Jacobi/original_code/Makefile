@@ -20,7 +20,7 @@ run: clean all
 	$(CC) $< $(CFLAGS) -o $@
 
 clean:
-	@rm -f *~ $(EXE) solution.dat 
+	@rm -f *~ $(EXE) solution.*
 
 plot:
 	@gnuplot -p plot.plt
