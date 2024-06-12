@@ -7,6 +7,11 @@
 - [Improved CPU version](#improved-cpu-version)
 - [GPU version](#gpu-version)
 - [Results](#results)
+  - [Legend](#legend)
+  - [Naive](#naive)
+  - [CPU](#cpu)
+  - [GPU](#gpu)
+  - [Comparison](#comparison)
 - [How to run](#how-to-run)
   
 ## Introduction
@@ -60,7 +65,7 @@ The basic version of the algorithm is the naive implementation of the matrix-mat
 
 ![basic](imgs/basic.png)
 
-`startPoint` is a shift that allows to directly position the computed values in `myC`, without using the support matrix `myCBlock`. Except for this, the code is straightforward: each process computes its part of `myC` by iterating over the rows of `myA` and the columns of `columnB`.
+`startPoint` is a shift that allows to directly position the computed values in `myC`, without using the support matrix `myCBlock`. Except for this, the code is straightforward: each process computes its `myCBlock`, with size `myNRows x nColumnsBblock`, by iterating over the rows of `myA` and the columns of `columnB`.
 
 ## Improved CPU version
 
@@ -68,7 +73,7 @@ The improved CPU version uses the BLAS library to compute the matrix-matrix mult
 
 ![blas](imgs/blas.png)
 
-We first compute the product and store it in `myCBlock`, then we place `myCBlock` in `myC`.
+We first compute the product and store it in `myCBlock`, then we place `myCBlock` in `myC` using the `startPoint` shift.
 
 Notice that we are specifying to `dgemm` that we don't want to transpose the matrices. This is done since we want to settle in a scenario were the original matrices are already given, all in the same format (a fixed number of rows for each process), hence gathering is necessary to perform the product.
 
@@ -80,11 +85,88 @@ GPU execution, which is done with CUDA and CUBLAS library, requires one more ste
 
 We first copy `columnB` to the GPU, then we compute the product and place it in `myCBlock` as in the previous case. Some interesting points to notice are:
 - all the matrices have already been preallocated on the GPU at the beginning of the execution, hence the only thing we are missing is the copy of `columnB`, which is built on the CPU at each iteration and then moved to the GPU;
-- `cublasDgemm`, the CUBLAS routine that performs the product, takes as input the matrices in column-major format by default, and we don't want to transpose them to avoid losing performances, hence we perform the product in the inverse order, exploiting the fact that $C=A\times B$ is equivalent to $C^T=B^T\times A^T$: in this way, the product output, which is saved in `myCBlock_dev`, is already in the correct format to be placed in `myC`;
-- to access `myCBlock_dev` and to modify `C_dev` we need to use a kernel function, since we are working on the GPU. Hence, we are only working on the GPU for the product and the placement of `myCBlock_dev` in `C_dev`: only at the end of the program `C_dev` is copied back to the CPU.
+- `cublasDgemm`, the CUBLAS routine that performs the product, takes as input the matrices in column-major format by default, and we don't want to transpose them to avoid losing performances, hence we perform the product in the inverse order, exploiting the fact that $C=A\times B$ is equivalent to $C^T=B^T\times A^T$: in this way, the product output, which is saved in `myCBlock_dev`, is already in the correct format to be placed in `myC`, but you must be careful to correctly set the leading dimensions of the matrices in the `cublasDgemm` call;
+- to access `myCBlock_dev` and to modify `C_dev` we need to use a kernel function, since we are working on the GPU. Hence, we are working exclusively on the GPU for the product and the placement of `myCBlock_dev` in `C_dev`: only at the end of the program `C_dev` is copied back to the CPU.
 
 ## Results
 
+In this section, we will analyze the results of the three versions of the algorithm. The code has been run on the Leonardo cluster, with up to 16 MPI tasks allocated one per node, for CPU versions, and up to 32 MPI tasks allocated four per node, one per GPU card, for the GPU version. The matrices have been generated randomly at each run and the execution time has been measured with the `MPI_Wtime` function. The tests have been done on matrices of size 5000x5000, but for the GPU version I have also used 45000x45000 matrices to better study the scalability. The maximum time among all the MPI processes has been plotted. However, I have also collected data regarding the average time and they have showed the same behavior, meaning the workload is correctly distributed among the processes, for this reason they have not been plotted.
+
+### Legend
+
+To easily identify the different parts of the code and plot them I have used some terms, here a brief explanation of them is given, in order of appearance in the code:
+- `initCuda`: initialization of Cuda, with `cudaGetDeviceCount` and `cudaSetDevice`;
+- `init`: initialization of the three matrices on CPU;
+- `initComm`: initialization of `myBblock`, `recvcounts` and `displs` for the communication;
+- `resAlloc`: everything related to the allocation of the matrices, both on CPU and on GPU (hence `malloc`, `cudaMalloc`, `cublasCreate` and `cudaMemcpy`);
+- `gather`: gathering of `myBblock` into `columnB` from all the processes;
+- `dGemm`: computation of the product, with triple loop (naive), `dgemm` (cpu) or `cublasDgemm` (gpu);
+- `place`: placement of `myCBlock` in `myC`.
+
+### Naive
+
+![naiveall](imgs/results/naiveAll.png)
+
+As we can see, the entire execution time is occupied by the computation of the product. Let's try to remove it to see how the other parts behave:
+
+![naivenomult](imgs/results/naiveNomult.png)
+
+Excluding `dGemm` time, `init` time seems to be the most time consuming part of the code (still 2 orders of magnitude far from product part though). Let's try to remove it as well:
+
+![naivenomult](imgs/results/naiveNoinit.png)
+
+`gather` time seems to stay constant, while `initComm` time seems to be extra scalar.
+
+### CPU
+
+![cpuall](imgs/results/cpuall.png)
+
+Also in this case, `dGemm` and `init` time are the most time consuming parts of the code, as we would expect. However, `dGemm` time is now 2 orders of magnitude smaller than in the naive case and comparable to `init` time. Let's try to remove them to study the other parts of the code:
+
+![cpunoinit](imgs/results/cpuNoinit.png)
+
+`gather` and `initComm` time have the same behavior as in the naive case. Notice that:
+- `place` time was not present in the naive case, since the product was directly placed in `myC`, while in this case we first compute the product and then place it in `myC`. However, the time spent in `place` is negligible with respect to the time spent in `dGemm` and `init`;
+- for both naive and CPU version, `resAlloc` time is practically zero, since the matrices are allocated only in the CPU. We'll see that this won't be the case in the GPU version.
+
+### GPU
+
+Finally, let's analyze the GPU version: first of all, let's see the results for the 5000x5000 matrices in order to compare them with the previous cases:
+
+![gpu5000](imgs/results/gpu5000all.png)
+
+As we can see, the most time consuming part of the code is `resAlloc`, this means we are spending most of the time in moving the matrices from CPU to GPU and back. `init` seems to behave as in the CPU case, which is totally expected since it is done on CPU. Let's have a deeper look at the other parts of the code:
+
+![gpu5000](imgs/results/gpu5000noinit.png)
+
+Also `initComm` and `gather` behave as in the CPU case as expected, and `place` time is practically zero, as it is done on the GPU.
+
+Let's now analyze the results for the 45000x45000 matrices:
+
+![gpuall](imgs/results/gpuall.png)
+
+By looking at the results of the measurements, we immediately spot three things:
+- the most time consuming part of the code is now `init`, which is expected since it is done on CPU;
+- `resAlloc` time is the second most time consuming part of the code;
+- `dGemm` time is insignificant with respect to the other parts.
+
+Let's try to remove `init`:
+
+![gpunoinit](imgs/results/gpuNoinit.png)
+
+As we can see, `resAlloc` time is quite relevant. One thing that is worth to notice is the fact that it scales almost perfectly up to 4 MPI tasks, but then the speedup basically stops (while the same does not happen to `init` and `initComm`). This is explainable by taking into consideration the fact that a single node of Leonardo's boost partition has 4 GPUs, hence by using up to 4 MPI tasks we are allocating everything in the same node, while using 8, 16, 32 tasks we are asking for 2, 4, 8 nodes and the communication time needed to allocate memory will not be negligible. `init` and `initComm` time, instead, are only performed on CPU and are not affected by the number of available GPUs.
+
+Let's remove `resAlloc` as well to see how the other parts behave:
+
+![gpunoresalloc](imgs/results/gpuNoresalloc.png)
+
+`gather` and `initComm` time show the same behavior as in the previous cases, and the only remaining visible part is now `initCuda`. Notice that `place` time is practically zero as it is done on the GPU.
+
+### Comparison
+
+Let's compare the results obtained by the three algorithms on 5000x5000 matrices:
+
+![comp](imgs/results/comparison.png)
 
 ## How to run
 
