@@ -1,3 +1,10 @@
+/**
+ * @file evolve.c
+ * @author Davide Rossi
+ * @brief Source file for the evolve function
+ * @date 2024-06
+ * 
+ */
 #include <mpi.h>
 #include <omp.h>
 
@@ -5,7 +12,7 @@
 
 void evolve( double* matrix, double* matrix_new, size_t nRows, size_t nCols, int prev, int next, struct Timer* t)
 {
-  //This will be a row dominant program.
+  // Update matrix_new using matrix values
   start(t);
 #ifdef _OPENACC
 #pragma acc parallel loop collapse(2) present(matrix[:nRows*nCols], matrix_new[:nRows*nCols])
@@ -20,6 +27,7 @@ void evolve( double* matrix, double* matrix_new, size_t nRows, size_t nCols, int
     }
 #pragma acc wait
   t->update += end(t);
+  // Exchange the ghost rows
   start(t);
   MPI_Request send_request[2], recv_request[2];
 #pragma acc host_data use_device(matrix, matrix_new)

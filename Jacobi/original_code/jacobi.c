@@ -15,6 +15,15 @@ void evolve( double * matrix, double *matrix_new, size_t dimension );
 // return the elapsed time
 double seconds( void );
 
+
+void printMatrix(double *matrix, uint nRows, uint nCols) {
+  for (uint i = 0; i < nRows; i++) {
+    for (uint j = 0; j < nCols; j++)
+      printf("%.6f\t", matrix[i*nCols + j]);
+    printf("\n");
+  }
+}
+
 /*** end function declaration ***/
 
 int main(int argc, char* argv[]){
@@ -91,7 +100,7 @@ int main(int argc, char* argv[]){
   
   printf( "\nelapsed time = %f seconds\n", t_end - t_start );
   printf( "\nmatrix[%zu,%zu] = %f\n", row_peek, col_peek, matrix[ ( row_peek + 1 ) * ( dimension + 2 ) + ( col_peek + 1 ) ] );
-
+  printMatrix(matrix, dimension+2, dimension+2);
   save_gnuplot( matrix, dimension );
   
   free( matrix );

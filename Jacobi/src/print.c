@@ -5,6 +5,19 @@
 #include "print.h"
 
 
+size_t getRowSize(uint matrixSize) {
+  size_t maxVal = matrixSize*matrixSize;
+  // Explanation: 
+  // - if the matrix has more than 100 elements, the maximum value will have 3 digits, so we need 8 characters to represent it (123.456\t)
+  // - if the matrix has more than 10 elements, the maximum value will have 2 digits, so we need 7 characters to represent it (12.345\t)
+  // - if the matrix has 10 or less elements, the maximum value will have 1 digit, so we need 6 characters to represent it (1.234\t)
+  // This is done just to save some memory, we could have simply used 8 characters for all cases, or even more to cover any kind of matrix,
+  // but that would be a waste of memory.
+  int elemSize = maxVal > 100 ? 8 : maxVal > 10 ? 7 : 6;
+  return matrixSize * elemSize;
+}
+
+
 void printMatrixThrSafe(double *matrix, uint nRows, uint nCols, uint myRank, uint NPEs) 
 {
   MPI_Barrier(MPI_COMM_WORLD);
@@ -38,6 +51,7 @@ void printMatrixThrSafe(double *matrix, uint nRows, uint nCols, uint myRank, uin
   }
 }
 
+
 void convertMatrix(double *matrix, char* charMatrix, uint nRows, uint nCols) {
   // build a string that contains the matrix
   size_t offset = 0;
@@ -50,17 +64,6 @@ void convertMatrix(double *matrix, char* charMatrix, uint nRows, uint nCols) {
   }
 }
 
-size_t getRowSize(uint matrixSize) {
-  size_t maxVal = matrixSize*matrixSize;
-  // Explanation: 
-  // - if the matrix has more than 100 elements, the maximum value will have 3 digits, so we need 8 characters to represent it (123.456\t)
-  // - if the matrix has more than 10 elements, the maximum value will have 2 digits, so we need 7 characters to represent it (12.345\t)
-  // - if the matrix has 10 or less elements, the maximum value will have 1 digit, so we need 6 characters to represent it (1.234\t)
-  // This is done just to save some memory, we could have simply used 8 characters for all cases, or even more to cover any kind of matrix,
-  // but that would be a waste of memory.
-  int elemSize = maxVal > 100 ? 8 : maxVal > 10 ? 7 : 6;
-  return matrixSize * elemSize;
-}
 
 void printMatrixDistributed(double *matrix, uint nRows, uint nCols, uint myRank, uint NPEs) 
 {

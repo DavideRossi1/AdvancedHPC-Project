@@ -50,9 +50,6 @@ int main(int argc, char* argv[])
   const uint myWorkSize = workSize + ((uint)myRank < workSizeRemainder ? 1 : 0) + 2;  // 2 rows added for the borders
   const size_t my_byte_dim = sizeof(double) * myWorkSize * dimWithEdge;
   const uint shift = myRank*workSize + ((uint)myRank < workSizeRemainder ? (uint)myRank : workSizeRemainder);
-#ifdef DEBUG
-  printf("proc %d, shift %d\n", myRank, shift);
-#endif
 #if defined(SAVEPLOT) || defined(SAVEGIF)
   // For plot, skip the first and last row, except for the first and last process
   uint firstRow = myRank ? 1 : 0;
@@ -66,11 +63,17 @@ int main(int argc, char* argv[])
 #pragma acc data create(matrix[:myWorkSize*dimWithEdge], matrix_new[:myWorkSize*dimWithEdge]) copyout(matrix[:myWorkSize*dimWithEdge])
 {
   t.copyin = end(&t);
+  start(&t);
   init( matrix, matrix_new, myWorkSize, dimWithEdge, prev, next, shift, &t);
+  t.init = end(&t);
 #ifdef DEBUG
 #pragma acc update self(matrix[:myWorkSize*dimWithEdge], matrix_new[:myWorkSize*dimWithEdge])
-  printMatrixThrSafe(matrix_new, myWorkSize, dimWithEdge, myRank, NPEs);
-  printMatrixThrSafe(matrix, myWorkSize, dimWithEdge, myRank, NPEs);
+  printf("Rank %d\n", myRank);
+  printMatrix(matrix, myWorkSize, dimWithEdge);
+  printf("\n");
+  printMatrix(matrix_new, myWorkSize, dimWithEdge);
+  // printMatrixThrSafe(matrix_new, myWorkSize, dimWithEdge, myRank, NPEs);
+  // printMatrixThrSafe(matrix, myWorkSize, dimWithEdge, myRank, NPEs);
 #endif
 #ifdef SAVEGIF
 #pragma acc update self(matrix[:myWorkSize*dimWithEdge]) 
@@ -100,6 +103,7 @@ int main(int argc, char* argv[])
   start(&t);
 }
   t.copyout = end(&t);
+  printMatrixThrSafe(matrix, myWorkSize, dimWithEdge, myRank, NPEs);
 #ifdef SAVEPLOT
   // save results
   start(&t);

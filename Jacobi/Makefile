@@ -5,13 +5,13 @@ OUTPUTDIR=output
 SRC=src
 PRINTDIR=--no-print-directory
 
-FLAGS=-O3 -I$(INCLUDE) -Wall -Wextra -march=native #-Wno-unknown-pragmas
+FLAGS=-O3 -I$(INCLUDE) -Wall -Wextra -march=native -Wno-unknown-pragmas
 OPENMP=-fopenmp
 OPENACC=-acc #-Minfo=all
 
 OBJECTS=$(patsubst $(SRC)/%.c, $(OBJDIR)/%.o, $(wildcard $(SRC)/*.c))
 
-#FLAGS+=-DDEBUG
+FLAGS+=-DDEBUG
 
 cpu: FLAGS+=$(OPENMP)
 cpu: jacobi.x
@@ -20,10 +20,10 @@ gpu: FLAGS+=$(OPENACC)
 gpu: jacobi.x
 
 jacobi.x: $(OBJECTS) jacobi.c
-	@mkdir -p $(OBJDIR)
 	@mkdir -p $(OUTPUTDIR)
 	@$(CC) $(FLAGS) $^ -o $@
 $(OBJDIR)/%.o: $(SRC)/%.c
+	@mkdir -p $(OBJDIR)
 	@$(CC) $(FLAGS) -c $^ -o $@
 
 clean:

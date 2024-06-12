@@ -6,7 +6,6 @@
 - [Distribute the domain: MPI](#distribute-the-domain-mpi)
 - [Move to GPU: OpenACC](#move-to-gpu-openacc)
 - [Results](#results)
-  - [Legend](#legend)
   - [CPU](#cpu)
   - [GPU](#gpu)
   - [Save time](#save-time)
@@ -37,14 +36,14 @@ whose solution can be iteratively found through Jacobi's method: if we discretiz
 
 1. initialize the matrices as desired: the first matrix is filled with zeros, the second one with $0.5$, both with the same boundary conditions: $0$ in the upper and right boundaries, $100$ in the lower left corner, with increasing values starting from that corner and getting farther from it:
 \
-    ![init](imgs/init.png)
+  ![init](imgs/init.png)
 \
-    This is done using 4 loops:
+  This is done using 4 loops:
     - one to initialize both matrices with zeros;
     - one to set $0.5$ for the internal points of the second matrix;
     - one to set the first column;
     - one to set the last row;
-2. Iterate over the grid points, updating each point as the average of its neighbors:
+1. Iterate over the grid points, updating each point as the average of its neighbors:
 
 $$
 V_{i,j}^{k+1} = \frac{1}{4} \left( V_{i-1,j}^k + V_{i+1,j}^k + V_{i,j-1}^k + V_{i,j+1}^k \right)
@@ -100,9 +99,7 @@ Also, in order to execute the the rows exchange directly between GPUs, `acc host
 
 ## Results
 
-In this section, we will analyze the performances obtained by the algorithm, both on CPU and on GPU. The code has been run on the Leonardo cluster, with up to 16 MPI tasks allocated one per node, for CPU versions, and up to 32 MPI tasks allocated four per node, one per GPU card, for the GPU version. The execution time has been measured with the `MPI_Wtime` function. The tests have been done with a matrix of size 1200x1200 and 12000x12000, with 10 evolution iterations, for the GPU version I have also used 40000x40000 and 1000 iterations to better study the scalability. The maximum time among all the MPI processes has been plotted. However, I have also collected data regarding the average time and they have showed the same behavior, meaning the workload is correctly distributed among the processes, for this reason they have not been plotted.
-
-### Legend
+In this section we will analyze the performances obtained by the algorithm, both on CPU and on GPU. The code has been run on the Leonardo cluster, with up to 16 MPI tasks allocated one per node, for CPU versions, and up to 32 MPI tasks allocated four per node, one per GPU card, for the GPU version. The execution time has been measured with the `MPI_Wtime` function. The tests have been done with a matrix of size 1200x1200 and 12000x12000, with 10 evolution iterations, for the GPU version I have also used 40000x40000 and 1000 iterations to better study the scalability. The maximum time among all the MPI processes has been plotted. However, I have also collected data regarding the average time and they have showed the same behavior, meaning the workload is correctly distributed among the processes, for this reason they have not been plotted.
 
 To easily identify the different parts of the code and plot them I have used some terms, here a brief explanation of them is given, in order of appearance in the code:
 - `initacc`: initialization of OpenACC, with `acc_get_num_devices`, `acc_set_device_num` and `acc_init`;
@@ -137,7 +134,7 @@ As we can see, it is totally pointless to run the code on GPU with such a small 
 
 ![gpu12000](imgs/results/gpu12000.png)
 
-As we can see, with a larger matrix we can start to appreciate some speedup, but the time spent on `initacc` is still relevant and most of the time is spent doing CPU-GPU communication (with less tasks) or still in `initacc` (with more tasks), with `init` and `update` being basically negligible. This is due to the fact that the workload is too small to fully exploit the power of the GPU. Let's then try to run the code with a much larger matrix and many more iterations, in order to increase the workload:
+We can start to appreciate some speedup, but the time spent on `initacc` is still relevant and most of the time is spent doing CPU-GPU communication (with less tasks) or still in `initacc` (with more tasks), with `init` and `update` being basically negligible. This is due to the fact that the workload is too small to fully exploit the power of the GPU. Let's then try to run the code with a much larger matrix and many more iterations, in order to increase the workload:
 
 ![gpu40000](imgs/results/gpu40000.png)
 
