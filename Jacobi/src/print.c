@@ -9,24 +9,26 @@ void printMatrixThrSafe(double *matrix, uint nRows, uint nCols, uint myRank, uin
 {
   MPI_Barrier(MPI_COMM_WORLD);
   if (myRank) {
-    MPI_Send(matrix, nRows * nCols, MPI_DOUBLE, 0, myRank, MPI_COMM_WORLD);
+    if (myRank == NPEs-1) nRows++;
+    MPI_Send(&matrix[nCols], (nRows-2) * nCols, MPI_DOUBLE, 0, myRank, MPI_COMM_WORLD);
   } else 
   {
+    uint nRowsCurrentProc = nRows - (NPEs > 1 ? 1 : 0);
     size_t offset = 0;
     uint charRowSize = getRowSize(nCols);
     size_t entireCharMatrixSize = nCols * charRowSize + 1; // the entire matrix is nCols*nCols big, +1 for the null terminator
     char *entireCharMatrix = (char*)malloc(entireCharMatrixSize * sizeof(char));
-    char* charMatrix = (char*)malloc(nRows * charRowSize * sizeof(char));
-    convertMatrix(matrix, charMatrix, nRows, nCols);
+    char* charMatrix = (char*)malloc(nRowsCurrentProc * charRowSize * sizeof(char));
+    convertMatrix(matrix, charMatrix, nRowsCurrentProc, nCols);
     offset += snprintf(entireCharMatrix + offset, entireCharMatrixSize - offset, "%s", charMatrix);
     free(charMatrix);
     for (uint i = 1; i < NPEs; i++) 
     {
-      uint nRowsSender = nCols / NPEs + (i < nCols % NPEs ? 1 : 0);
-      charMatrix = (char*)malloc((nRowsSender * charRowSize + 1) * sizeof(char)); // +1 for the null terminator
-      double *buf = (double *)malloc(nRowsSender * nCols * sizeof(double));
-      MPI_Recv(buf, nRowsSender * nCols, MPI_DOUBLE, i, i, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-      convertMatrix(buf, charMatrix, nRowsSender, nCols);
+      nRowsCurrentProc = (nCols-2)/NPEs + (i < (nCols-2)%NPEs ? 1 : 0) + (i == NPEs-1 ? 1 : 0);
+      charMatrix = (char*)malloc((nRowsCurrentProc * charRowSize + 1) * sizeof(char)); // +1 for the null terminator
+      double *buf = (double *)malloc(nRowsCurrentProc * nCols * sizeof(double));
+      MPI_Recv(buf, nRowsCurrentProc * nCols, MPI_DOUBLE, i, i, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      convertMatrix(buf, charMatrix, nRowsCurrentProc, nCols);
       offset += snprintf(entireCharMatrix + offset, entireCharMatrixSize - offset, "%s", charMatrix);
       free(charMatrix);
       free(buf);
@@ -62,7 +64,7 @@ size_t getRowSize(uint matrixSize) {
 
 void printMatrixDistributed(double *matrix, uint nRows, uint nCols, uint myRank, uint NPEs) 
 {
-  #pragma acc update self(matrix[:nRows*nCols])
+#pragma acc update self(matrix[:nRows*nCols])
   if (myRank) {
     if (myRank == NPEs-1) nRows++;
     MPI_Send(&matrix[nCols], (nRows-2) * nCols, MPI_DOUBLE, 0, myRank, MPI_COMM_WORLD);

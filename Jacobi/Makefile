@@ -1,12 +1,13 @@
 CC=mpicc
 INCLUDE=include
 OBJDIR=obj
+OUTPUTDIR=output
 SRC=src
 PRINTDIR=--no-print-directory
 
-FLAGS=-O3 -I$(INCLUDE) -Wall -Wextra -march=native -Wno-unknown-pragmas
+FLAGS=-O3 -I$(INCLUDE) -Wall -Wextra -march=native #-Wno-unknown-pragmas
 OPENMP=-fopenmp
-OPENACC=-acc -Minfo=all
+OPENACC=-acc #-Minfo=all
 
 OBJECTS=$(patsubst $(SRC)/%.c, $(OBJDIR)/%.o, $(wildcard $(SRC)/*.c))
 
@@ -19,13 +20,14 @@ gpu: FLAGS+=$(OPENACC)
 gpu: jacobi.x
 
 jacobi.x: $(OBJECTS) jacobi.c
+	@mkdir -p $(OBJDIR)
+	@mkdir -p $(OUTPUTDIR)
 	@$(CC) $(FLAGS) $^ -o $@
 $(OBJDIR)/%.o: $(SRC)/%.c
-	@mkdir -p $(OBJDIR)
 	@$(CC) $(FLAGS) -c $^ -o $@
 
 clean:
-	@rm -rf jacobi.x solution.* $(OBJDIR) output/*.dat
+	@rm -rf jacobi.x solution.* $(OBJDIR) $(OUTPUTDIR)
 
 plot:
 	@gnuplot -e "NITER=$(words $(wildcard output/*.dat))" -p plot.plt 
@@ -69,6 +71,7 @@ comparegpu: F=gpurun
 comparegpu: compare
 
 compare:
+	@$(MAKE) clean $(PRINTDIR)
 	@$(MAKE) $(F) $(PRINTDIR) NP=$(NP) SZ=$(SZ) IT=$(IT) >> /dev/null
 	@$(MAKE) plot $(PRINTDIR)
 	@$(MAKE) run -C original_code $(PRINTDIR) dim=$(SZ) it=$(IT) r=1 c=1 >> /dev/null

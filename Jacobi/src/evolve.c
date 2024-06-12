@@ -18,15 +18,19 @@ void evolve( double* matrix, double* matrix_new, size_t nRows, size_t nCols, int
       matrix_new[currentEl] = 0.25*( matrix[currentEl-nCols] + matrix[currentEl+1] + 
                                      matrix[currentEl+nCols] + matrix[currentEl-1] );
     }
+#pragma acc wait
   t->update += end(t);
-  MPI_Barrier(MPI_COMM_WORLD);
   start(t);
-#pragma omp master
+  MPI_Request send_request[2], recv_request[2];
+#pragma acc host_data use_device(matrix, matrix_new)
   {
-    MPI_Sendrecv(&matrix_new[nCols], nCols, MPI_DOUBLE, prev, 1, 
-                &matrix_new[0],     nCols, MPI_DOUBLE, prev, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    MPI_Sendrecv(&matrix_new[(nRows-2)*nCols], nCols, MPI_DOUBLE, next, 0, 
-                &matrix_new[(nRows-1)*nCols], nCols, MPI_DOUBLE, next, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    MPI_Isend(&matrix_new[nCols], nCols, MPI_DOUBLE, prev, 1, MPI_COMM_WORLD, &send_request[0]);
+    MPI_Irecv(&matrix_new[0], nCols, MPI_DOUBLE, prev, 0, MPI_COMM_WORLD, &recv_request[0]);
+
+    MPI_Isend(&matrix_new[(nRows - 2) * nCols], nCols, MPI_DOUBLE, next, 0, MPI_COMM_WORLD, &send_request[1]);
+    MPI_Irecv(&matrix_new[(nRows - 1) * nCols], nCols, MPI_DOUBLE, next, 1, MPI_COMM_WORLD, &recv_request[1]);
   }
-  t->sendRecv += end(t);
+  MPI_Waitall(2, send_request, MPI_STATUSES_IGNORE);
+  MPI_Waitall(2, recv_request, MPI_STATUSES_IGNORE);
+  t->sendRecv += end(t);  
 }
