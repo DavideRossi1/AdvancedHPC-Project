@@ -166,13 +166,13 @@ The Makefile also provides a shortcut to directly compile and run the code: `mak
 
 In order to check correctness of the obtained output, the original code is provided in [original_code](original_code/) folder, and a special target can be used to directly compare the output of the original code with the one of the optimized code: 
 `make compare%pu NP=<nProc> SZ=<size> IT=<nIter>`
-This target will compile and run both the original and the optimized code (with the given number of processes, size and number of iterations, on CPU or GPU), produce the output images in `.png` format, and compare them using Unix command `diff`: if the images are identical, as expected, no output will be produced, otherwise the output will be
+This target will compile and run both the original and the optimized code (with the given number of processes, size and number of iterations, on CPU or GPU), save the outputs in binary format, and compare them using Unix command `diff`: if the outputs are identical, as expected, no output will be produced, otherwise the output will be
 ```
-Binary files solution.png and original_code/solution.png differ
+Binary files output/solution0.dat and original_code/solution.dat differ
 ```
+Note: to directly compare the two files without having to worry about precision issues, the original code `save_gnuplot` function has been modified to save binary files; this is the only change that has been performed.
 
-
-**Side note**: MPI-IO has been used to save the matrix on file. The file is saved in binary format, and this causes some issues if the file is overwritten multiple times, since MPI-IO does not truncate the file before writing: if you want to run the program with a size which is smaller than the previous one, delete the `solution.dat` file before running, in order to generate it from scratch instead of overwriting it.
+**Side note**: MPI-IO has been used to save the matrix on file. The file is saved in binary format, and this causes some issues if the file is overwritten multiple times, since MPI-IO does not truncate the file before writing: if you want to run the program with a size which is smaller than the previous one, delete the `solution.dat` file before running, in order to generate it from scratch instead of overwriting it. `compare%pu` targets are already provided with an internal `clean`, in order to repeatedly compare results without having to worry about non-truncated files.
 
 
 

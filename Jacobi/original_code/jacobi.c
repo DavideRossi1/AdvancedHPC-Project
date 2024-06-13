@@ -15,15 +15,6 @@ void evolve( double * matrix, double *matrix_new, size_t dimension );
 // return the elapsed time
 double seconds( void );
 
-
-void printMatrix(double *matrix, uint nRows, uint nCols) {
-  for (uint i = 0; i < nRows; i++) {
-    for (uint j = 0; j < nCols; j++)
-      printf("%.6f\t", matrix[i*nCols + j]);
-    printf("\n");
-  }
-}
-
 /*** end function declaration ***/
 
 int main(int argc, char* argv[]){
@@ -100,7 +91,6 @@ int main(int argc, char* argv[]){
   
   printf( "\nelapsed time = %f seconds\n", t_end - t_start );
   printf( "\nmatrix[%zu,%zu] = %f\n", row_peek, col_peek, matrix[ ( row_peek + 1 ) * ( dimension + 2 ) + ( col_peek + 1 ) ] );
-  printMatrix(matrix, dimension+2, dimension+2);
   save_gnuplot( matrix, dimension );
   
   free( matrix );
@@ -129,11 +119,13 @@ void save_gnuplot( double *M, size_t dimension ){
   const double h = 0.1;
   FILE *file;
 
-  file = fopen( "solution.dat", "w" );
+  file = fopen( "solution.dat", "wb" );
   for( i = 0; i < dimension + 2; ++i )
-    for( j = 0; j < dimension + 2; ++j )
-      fprintf(file, "%f\t%f\t%f\n", h * j, -h * i, M[ ( i * ( dimension + 2 ) ) + j ] );
-
+    for( j = 0; j < dimension + 2; ++j ){
+      double buffer[3] = { h * j, -h * i, M[ ( i * ( dimension + 2 ) ) + j ] };
+      fwrite( buffer, sizeof( double ), 3, file );      
+      //fprintf(file, "%f\t%f\t%f\n", h * j, -h * i, M[ ( i * ( dimension + 2 ) ) + j ] );
+    }
   fclose( file );
 
 }

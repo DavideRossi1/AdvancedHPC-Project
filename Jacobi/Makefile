@@ -5,13 +5,13 @@ OUTPUTDIR=output
 SRC=src
 PRINTDIR=--no-print-directory
 
-FLAGS=-O3 -I$(INCLUDE) -Wall -Wextra -march=native -Wno-unknown-pragmas
+FLAGS=-O3 -I$(INCLUDE) -Wall -Wextra -march=native #-Wno-unknown-pragmas
 OPENMP=-fopenmp
 OPENACC=-acc #-Minfo=all
 
 OBJECTS=$(patsubst $(SRC)/%.c, $(OBJDIR)/%.o, $(wildcard $(SRC)/*.c))
 
-FLAGS+=-DDEBUG
+#FLAGS+=-DDEBUG
 
 cpu: FLAGS+=$(OPENMP)
 cpu: jacobi.x
@@ -73,10 +73,8 @@ comparegpu: compare
 compare:
 	@$(MAKE) clean $(PRINTDIR)
 	@$(MAKE) $(F) $(PRINTDIR) NP=$(NP) SZ=$(SZ) IT=$(IT) >> /dev/null
-	@$(MAKE) plot $(PRINTDIR)
 	@$(MAKE) run -C original_code $(PRINTDIR) dim=$(SZ) it=$(IT) r=1 c=1 >> /dev/null
-	@$(MAKE) plot -C original_code $(PRINTDIR)
-	@diff ./solution.png ./original_code/solution.png || true
+	@diff ./$(OUTPUTDIR)/solution0.dat ./original_code/solution.dat || true
 
 .PHONY: clean plot push pull run cpu gpu diff
 

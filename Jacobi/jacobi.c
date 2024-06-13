@@ -41,6 +41,10 @@ int main(int argc, char* argv[])
 
   size_t dim = atoi(argv[1]);
   size_t iterations = atoi(argv[2]);
+#ifdef DEBUG
+  if (dim>30 || iterations >30)
+#undef DEBUG
+#endif
   size_t dimWithEdge = dim + 2;
   int prev = myRank ? myRank-1 : MPI_PROC_NULL;
   int next = myRank != NPEs-1 ? myRank+1 : MPI_PROC_NULL;
@@ -64,16 +68,12 @@ int main(int argc, char* argv[])
 {
   t.copyin = end(&t);
   start(&t);
-  init( matrix, matrix_new, myWorkSize, dimWithEdge, prev, next, shift, &t);
+  init( matrix, matrix_new, myWorkSize, dimWithEdge, prev, next, shift);
   t.init = end(&t);
 #ifdef DEBUG
 #pragma acc update self(matrix[:myWorkSize*dimWithEdge], matrix_new[:myWorkSize*dimWithEdge])
-  printf("Rank %d\n", myRank);
-  printMatrix(matrix, myWorkSize, dimWithEdge);
-  printf("\n");
-  printMatrix(matrix_new, myWorkSize, dimWithEdge);
-  // printMatrixThrSafe(matrix_new, myWorkSize, dimWithEdge, myRank, NPEs);
-  // printMatrixThrSafe(matrix, myWorkSize, dimWithEdge, myRank, NPEs);
+  printMatrixThrSafe(matrix_new, myWorkSize, dimWithEdge, myRank, NPEs);
+  printMatrixThrSafe(matrix, myWorkSize, dimWithEdge, myRank, NPEs);
 #endif
 #ifdef SAVEGIF
 #pragma acc update self(matrix[:myWorkSize*dimWithEdge]) 
@@ -103,7 +103,6 @@ int main(int argc, char* argv[])
   start(&t);
 }
   t.copyout = end(&t);
-  printMatrixThrSafe(matrix, myWorkSize, dimWithEdge, myRank, NPEs);
 #ifdef SAVEPLOT
   // save results
   start(&t);
