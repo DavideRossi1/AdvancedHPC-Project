@@ -1,3 +1,10 @@
+/**
+ * @file init.h
+ * @author Davide Rossi
+ * @brief header file for the initialization functions
+ * @date 2024-06
+ * 
+ */
 #pragma once
 #include <stdlib.h>
 
@@ -7,7 +14,7 @@ extern "C" {
 #endif
 
 /**
-* Initialize a matrix with increasing values. Rank and NPEs are used to compute the correct starting value
+* @brief Initialize a matrix with increasing values. Rank and NPEs are used to compute the correct starting value
 *
 * @param matrix the matrix to initialize
 * @param nRows number of rows of the matrix
@@ -18,7 +25,7 @@ extern "C" {
 void initOrder(double* matrix, uint nRows, uint nCols, uint myRank, uint NPEs);
 
 /**
-* Initialize a matrix with the identity matrix. Rank and NPEs are used to compute the correct starting value
+* @brief Initialize a matrix with the identity matrix. Rank and NPEs are used to compute the correct starting value
 *
 * @param matrix the matrix to initialize
 * @param nRows number of rows of the matrix
@@ -29,7 +36,7 @@ void initOrder(double* matrix, uint nRows, uint nCols, uint myRank, uint NPEs);
 void initID(double* matrix, uint nRows, uint nCols, uint myRank, uint NPEs);
 
 /**
-* Initialize a matrix with random values
+* @brief Initialize a matrix with random values
 *
 * @param matrix the matrix to initialize
 * @param nElements the total number of elements (nRows*nCols)
@@ -37,7 +44,7 @@ void initID(double* matrix, uint nRows, uint nCols, uint myRank, uint NPEs);
 void initRandom(double* matrix, size_t nElements);
 
 /**
-* Initialize the three given matrices
+* @brief Initialize the three given matrices
 *
 * @param myA first matrix
 * @param myB second matrix

@@ -1,3 +1,10 @@
+/**
+ * @file main.c
+ * @author Davide Rossi
+ * @brief Main function for the distributed matrix multiplication
+ * @date 2024-06
+ * 
+ */
 #include <stdio.h>
 #ifdef CBLAS
   #include <cblas.h>
@@ -21,10 +28,6 @@ __global__ void placeBlockInMatrixKernel(double *block, double *matrix, uint nBl
         matrix[i * nMatrixCols + j + startingCol] = block[i * nBlockCols + j];
 }
 #endif
-
-//void printArray(int* array, uint size);
-
-//int MPI_Allgatherv_L(const void *sendbuf, size_t sendcount, MPI_Datatype sendtype, void *recvbuf, const size_t *recvcounts, const size_t *displs, MPI_Datatype recvtype, MPI_Comm comm, int myRank, int NPEs);
 
 int main(int argc, char** argv)
 {
@@ -73,7 +76,7 @@ int main(int argc, char** argv)
     int *recvcounts = (int*)malloc(NPEs*sizeof(int));
     int *displs     = (int*)malloc(NPEs*sizeof(int));
 
-    // allocate columnB, Bblock and Cblock with the maximum space they will require
+    // allocate columnB, Bblock and Cblock once, with the maximum space they will require
     double *columnB  = (double*)malloc((workSize+1)*N*sizeof(double));
     double *myBblock = (double*)malloc(maxBlockByteDim);
     double *myCBlock = (double*)malloc(maxBlockByteDim);
@@ -129,10 +132,6 @@ int main(int argc, char** argv)
         #else
             start(&t);
             naiveMult(myA, columnB, myC, myNRows, N, nColumnsBblock, startPoint);
-            // for (uint i = 0; i < myNRows; i++)
-            //     for (uint j = 0; j < nColumnsBblock; j++)
-            //         for (uint k = 0; k < N; k++)
-            //             myC[i*N + j + startPoint] += myA[i*N + k] * columnB[k*N + j];
             t.dgemm += end(&t);
         #endif
         MPI_Barrier(MPI_COMM_WORLD);
@@ -167,42 +166,3 @@ int main(int argc, char** argv)
     MPI_Finalize();
     return 0;
 }
-
-// void printArray(int* array, uint size){
-//     for(uint i=0; i<size; i++)
-//         printf("%d ", array[i]);
-//     printf("\n");
-// }
-
-// failed test to enlarge allgatherv to allow larger matrices
-// int MPI_Allgatherv_L(const void *sendbuf, size_t sendcount, MPI_Datatype sendtype, void *recvbuf, const size_t *recvcounts, const size_t *displs, MPI_Datatype recvtype, MPI_Comm comm, int myRank, int NPEs) {
-//     int maxCount = 2;
-//     int nChunks = sendcount / maxCount + 1;
-//     int remainder = sendcount % maxCount;
-//     int chunkSendcount = maxCount;
-//     int output;
-//     size_t recvcountsLeft[NPEs];
-//     size_t displsCopy[NPEs];
-//     memcpy(recvcountsLeft, recvcounts, NPEs*sizeof(size_t));
-//     memcpy(displsCopy, displs, NPEs*sizeof(size_t));
-//     printf("recvcountsLeft:\n");
-//     printArray(recvcountsLeft, NPEs);
-//     printf("displsCopy:\n");
-//     printArray(displsCopy, NPEs);
-//     int* chunkRecvcounts = (int*)malloc(NPEs*sizeof(int));
-//     for (int i = 0; i < nChunks; i++) {
-//         if (i == nChunks - 1 && remainder > 0) chunkSendcount = remainder;
-//         for (int j = 0; j < NPEs; j++) {
-//             chunkRecvcounts[j] = recvcountsLeft[j] > maxCount ? maxCount : recvcountsLeft[j];
-//             recvcountsLeft[j] -= chunkRecvcounts[j];
-//             displsCopy[j] += chunkRecvcounts[j];            
-//         }
-//         printf("chunkRecvcounts:\n");
-//         printArray(chunkRecvcounts, NPEs);
-//         printf("displsCopy:\n");
-//         printArray(displsCopy, NPEs);
-//         output = MPI_Allgatherv(sendbuf, chunkSendcount, sendtype, recvbuf, chunkRecvcounts, displsCopy, recvtype, comm);
-//         if (output != MPI_SUCCESS) return output;
-//     }
-//     return MPI_SUCCESS;
-// }

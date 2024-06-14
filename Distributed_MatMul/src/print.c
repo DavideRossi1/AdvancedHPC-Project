@@ -1,3 +1,10 @@
+/**
+ * @file print.c
+ * @author Davide Rossi
+ * @brief Source file for the printing functions
+ * @date 2024-06
+ * 
+ */
 #include <stdio.h>
 #include <mpi.h>
 
@@ -11,7 +18,7 @@ void printMatrixThrSafe(double *matrix, uint nRows, uint nCols, uint myRank, uin
   } else 
   {
     size_t offset = 0;
-    uint charRowSize = nCols*8;  // suppose each element to have at most 7 chars (123.456), plus the tab
+    uint charRowSize = nCols*8;  // suppose each element to have at most 7 chars plus the tab (ddd.ddd\t)
     size_t entireCharMatrixSize = nCols * charRowSize + 1; // the entire matrix is nCols*nCols big, +1 for the null terminator
     char *entireCharMatrix = (char*)malloc(entireCharMatrixSize * sizeof(char));
     char* charMatrix = (char*)malloc(nRows * charRowSize * sizeof(char));

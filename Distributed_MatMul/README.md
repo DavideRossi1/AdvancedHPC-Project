@@ -7,9 +7,8 @@
 - [Improved CPU version](#improved-cpu-version)
 - [GPU version](#gpu-version)
 - [Results](#results)
-  - [Legend](#legend)
-  - [Naive](#naive)
-  - [CPU](#cpu)
+  - [CPU - Naive](#cpu---naive)
+  - [CPU - BLAS](#cpu---blas)
   - [GPU](#gpu)
   - [Comparison](#comparison)
 - [How to run](#how-to-run)
@@ -90,9 +89,7 @@ We first copy `columnB` to the GPU, then we compute the product and place it in 
 
 ## Results
 
-In this section, we will analyze the results of the three versions of the algorithm. The code has been run on the Leonardo cluster, with up to 16 MPI tasks allocated one per node, for CPU versions, and up to 32 MPI tasks allocated four per node, one per GPU card, for the GPU version. The matrices have been generated randomly at each run and the execution time has been measured with the `MPI_Wtime` function. The tests have been done on matrices of size 5000x5000, but for the GPU version I have also used 45000x45000 matrices to better study the scalability. The maximum time among all the MPI processes has been plotted. However, I have also collected data regarding the average time and they have showed the same behavior, meaning the workload is correctly distributed among the processes, for this reason they have not been plotted.
-
-### Legend
+In this section we will analyze the results of the three versions of the algorithm. The code has been run on the Leonardo cluster, with up to 16 MPI tasks allocated one per node, for CPU versions, and up to 32 MPI tasks allocated four per node, one per GPU card, for the GPU version. The matrices have been generated randomly at each run and the execution time has been measured with the `MPI_Wtime` function. The tests have been done on matrices of size 5000x5000, but for the GPU version I have also used 45000x45000 matrices to better study the scalability. The maximum time among all the MPI processes has been plotted. However, I have also collected data regarding the average time and they have showed the same behavior, meaning the workload is correctly distributed among the processes, for this reason they have not been plotted.
 
 To easily identify the different parts of the code and plot them I have used some terms, here a brief explanation of them is given, in order of appearance in the code:
 - `initCuda`: initialization of Cuda, with `cudaGetDeviceCount` and `cudaSetDevice`;
@@ -103,7 +100,7 @@ To easily identify the different parts of the code and plot them I have used som
 - `dGemm`: computation of the product, with triple loop (naive), `dgemm` (cpu) or `cublasDgemm` (gpu);
 - `place`: placement of `myCBlock` in `myC`.
 
-### Naive
+### CPU - Naive
 
 ![naiveall](imgs/results/naiveAll.png)
 
@@ -117,7 +114,7 @@ Excluding `dGemm` time, `init` time seems to be the most time consuming part of 
 
 `gather` time seems to stay constant, while `initComm` time seems to be extra scalar.
 
-### CPU
+### CPU - BLAS
 
 ![cpuall](imgs/results/cpuall.png)
 

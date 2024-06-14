@@ -1,3 +1,10 @@
+/**
+ * @file utilities.c
+ * @author Davide Rossi
+ * @brief Source file for some utility functions
+ * @date 2024-06
+ * 
+ */
 #include <omp.h>
 #include <string.h>
 

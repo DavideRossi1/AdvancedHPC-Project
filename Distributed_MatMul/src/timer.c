@@ -1,3 +1,10 @@
+/**
+ * @file timer.c
+ * @author Davide Rossi
+ * @brief Source file for the timer functions, used to measure the time of the different parts of the program
+ * @date 2024-06
+ * 
+ */
 #include <stdio.h>
 
 #include "timer.h"

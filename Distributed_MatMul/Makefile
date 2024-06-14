@@ -36,12 +36,12 @@ gpu: main
 gpu: cleanup_main # rename main.cu back to main.c
 
 main: $(OBJECTS)
-	@$(CC) $(LINKFLAGS) $^ -o $@
+	$(CC) $(LINKFLAGS) $^ -o $@
 $(OBJDIR)/main.o:
 	@mkdir -p $(OBJDIR)
-	@$(CC) $(MAINFLAGS) -c $(MAIN) -o $@
+	$(CC) $(MAINFLAGS) -c $(MAIN) -o $@
 $(OBJDIR)/%.o: $(SRC)/%.c
-	@mpicc $(CFLAGS) -c $< -o $@
+	mpicc $(CFLAGS) -c $< -o $@
 
 prepare_main:
 	@mv main.c main.cu
