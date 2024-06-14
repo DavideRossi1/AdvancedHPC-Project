@@ -8,6 +8,7 @@
 - [Results](#results)
   - [CPU](#cpu)
   - [GPU](#gpu)
+  - [Comparison](#comparison)
   - [Save time](#save-time)
 - [How to run](#how-to-run)
 - [Check correctness](#check-correctness)
@@ -35,22 +36,28 @@ $$
 whose solution can be iteratively found through Jacobi's method: if we discretize the domain in a grid of points, the value of each point can be updated as the average of its neighbors. The algorithm is as follows:
 
 
-1. initialize the matrices as desired: the first matrix is filled with zeros, the second one with $0.5$, both with the same boundary conditions: $0$ in the upper and right boundaries, $100$ in the lower left corner, with increasing values starting from that corner and getting farther from it:
+- initialize the matrices as desired: the first matrix is filled with zeros, the second one with $0.5$, both with the same boundary conditions: $0$ in the upper and right boundaries, $100$ in the lower left corner, with increasing values starting from that corner and getting farther from it:
 
   ![init](imgs/init.png)
 
   This is done using 4 loops:
+
     - one to initialize both matrices with zeros;
     - one to set $0.5$ for the internal points of the second matrix;
     - one to set the first column;
     - one to set the last row;
-1. Iterate over the grid points, updating each point as the average of its neighbors:
+  
+- Iterate over the grid points, updating each point as the average of its neighbors:
 
 $$
 V_{i,j}^{k+1} = \frac{1}{4} \left( V_{i-1,j}^k + V_{i+1,j}^k + V_{i,j-1}^k + V_{i,j+1}^k \right)
 $$
 
-3. Repeat step 2 until a desired convergence criterion is met.
+- Repeat step 2 until a desired convergence criterion is met.
+
+The following gif shows the evolution of the matrix during 100 iterations:
+
+![gif](imgs/solution.gif)
 
 ## Distribute the domain: MPI
 
@@ -119,11 +126,13 @@ Let's start with the CPU version:
 
 As we can see, scalability is pretty good but, with high number of processes, it is limited by the very low time spent. As we would expect, `init` and `update` take almost all the time, with `update` being the most time-consuming part. However, as the number of MPI tasks increases, we can see that the time spent on `sendrecv` increases, being nearly comparable with the time spent on the other two parts for 16 MPI tasks.
 
-Let's see how things change with a larger matrix:
+Let's see how things change with a larger matrix: by multiplying the size by 10, we expect the time to increase by a factor of 100, since the time scales quadratically with the size of the matrix:
 
 ![cpu12000](imgs/results/cpu12000.png)
 
 As expected, speedup is greatly improved with more MPI tasks, and the time spent on `sendrecv` is now totally negligible: basically the entire computation time is spent on initialization and update of the matrix.
+
+Also, the time spent on the 12000x12000 matrix is about 100 times the time spent on the 1200x1200 matrix at parity of the number of MPI tasks, as we would expect.
 
 ### GPU
 
@@ -141,9 +150,17 @@ We can start to appreciate some speedup, but the time spent on `initacc` is stil
 
 We can finally appreciate a significant speedup even with a large number of MPI tasks: the time spent on `initacc` is now negligible with respect to the other parts of the code and most of the time is now spent on the update, as we would expect.
 
+### Comparison
+
+Let's now compare the CPU and GPU versions with the same matrix size and number of iterations:
+
+![comp](imgs/results/comparison.png)
+
+As we can see, if with a small matrix the GPU version is not convenient at all, with a larger matrix we can appreciate a significant improvement, and we expect the difference to be more and more significant as the matrix size increases.
+
 ### Save time
 
-Finally, let's see how the `save` part affects the performances: since it is not influenced by GPU acceleration, we'll just compare it with other parts of the code in order to understand its magnitude:
+Up to now we have ignored the `save` time, let's now see how it affects the performances: since it is not influenced by GPU acceleration, we'll just compare it with other parts of the code in order to understand its magnitude:
 
 ![save](imgs/results/1200save.png)
 
@@ -176,5 +193,3 @@ Binary files output/solution0.dat and original_code/solution.dat differ
 Note: to directly compare the two files without having to worry about precision issues, the original code `save_gnuplot` function has been modified to save binary files; this is the only change that has been performed on it.
 
 **Side note**: MPI-IO writes binary files and does not truncate the file on which it'll write if it already exists: if you want to run the program with a size which is smaller than the previous one, delete the `solution.dat` file before running, in order to generate it from scratch instead of overwriting it. `compare%pu` targets are already provided with an internal `clean`, in order to repeatedly compare results without having to worry about non-truncated files.
-
-![gif](imgs/solution.gif)
