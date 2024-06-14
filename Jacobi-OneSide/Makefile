@@ -5,21 +5,12 @@ OUTPUTDIR=output
 SRC=src
 PRINTDIR=--no-print-directory
 
-FLAGS=-O3 -I$(INCLUDE) -Wall -Wextra -march=native #-Wno-unknown-pragmas
-OPENMP=-fopenmp
-OPENACC=-acc #-Minfo=all
-
+FLAGS=-O3 -I$(INCLUDE) -Wall -Wextra -march=native -fopenmp #-Wno-unknown-pragmas
 OBJECTS=$(patsubst $(SRC)/%.c, $(OBJDIR)/%.o, $(wildcard $(SRC)/*.c))
 
 #FLAGS+=-DDEBUG
 
-cpu: FLAGS+=$(OPENMP)
-cpu: jacobi.x
-
-gpu: FLAGS+=$(OPENACC)
-gpu: jacobi.x
-
-jacobi.x: $(OBJECTS) jacobi.c
+main: $(OBJECTS) jacobi.c
 	@mkdir -p $(OUTPUTDIR)
 	@$(CC) $(FLAGS) $^ -o $@
 $(OBJDIR)/%.o: $(SRC)/%.c
@@ -41,37 +32,19 @@ pull:
 	@git reset --hard
 	@git pull
 
-cpusave: FLAGS+=-DSAVEPLOT
-cpusave: cpu
+save: FLAGS+=-DSAVEPLOT
+save: main
 
-gpusave: FLAGS+=-DSAVEPLOT
-gpusave: gpu
-
-cpugif: FLAGS+=-DSAVEGIF
-cpugif: cpu
-
-gpugif: FLAGS+=-DSAVEGIF
-gpugif: gpu
-
-cpurun: FUNC=cpusave 
-cpurun: run
-
-gpurun: FUNC=gpusave
-gpurun: run
+gif: FLAGS+=-DSAVEGIF
+gif: main
 
 run:
 	@$(MAKE) clean $(PRINTDIR)
-	@$(MAKE) $(FUNC) $(PRINTDIR)
+	@$(MAKE) save $(PRINTDIR)
 	@mpirun -np $(NP) ./jacobi.x $(SZ) $(IT)
 
-comparecpu: F=cpurun
-comparecpu: compare
-
-comparegpu: F=gpurun
-comparegpu: compare
-
 compare:
-	@$(MAKE) $(F) $(PRINTDIR) NP=$(NP) SZ=$(SZ) IT=$(IT) >> /dev/null
+	@$(MAKE) run $(PRINTDIR) NP=$(NP) SZ=$(SZ) IT=$(IT) >> /dev/null
 	@$(MAKE) run -C original_code $(PRINTDIR) dim=$(SZ) it=$(IT) r=1 c=1 >> /dev/null
 	@diff ./$(OUTPUTDIR)/solution0.dat ./original_code/solution.dat || true
 

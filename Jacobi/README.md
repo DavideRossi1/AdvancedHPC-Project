@@ -37,15 +37,12 @@ whose solution can be iteratively found through Jacobi's method: if we discretiz
 
 
 - initialize the matrices as desired: the first matrix is filled with zeros, the second one with $0.5$, both with the same boundary conditions: $0$ in the upper and right boundaries, $100$ in the lower left corner, with increasing values starting from that corner and getting farther from it:
-
-  ![init](imgs/init.png)
-
-  This is done using 4 loops:
-
-    - one to initialize both matrices with zeros;
-    - one to set $0.5$ for the internal points of the second matrix;
-    - one to set the first column;
-    - one to set the last row;
+![init](imgs/init.png)
+This is done using 4 loops:
+  - one to initialize both matrices with zeros;
+  - one to set $0.5$ for the internal points of the second matrix;
+  - one to set the first column;
+  - one to set the last row;
   
 - Iterate over the grid points, updating each point as the average of its neighbors:
 
@@ -130,9 +127,9 @@ Let's see how things change with a larger matrix: by multiplying the size by 10,
 
 ![cpu12000](imgs/results/cpu12000.png)
 
-As expected, speedup is greatly improved with more MPI tasks, and the time spent on `sendrecv` is now totally negligible: basically the entire computation time is spent on initialization and update of the matrix.
+Speedup is greatly improved with more MPI tasks, and the time spent on `sendrecv` is now totally negligible: basically the entire computation time is spent on initialization and update of the matrix.
 
-Also, the time spent on the 12000x12000 matrix is about 100 times the time spent on the 1200x1200 matrix at parity of the number of MPI tasks, as we would expect.
+Also, the time spent on the 12000x12000 matrix is about 100 times the time spent on the 1200x1200 matrix at parity of the number of MPI tasks, as we expected.
 
 ### GPU
 
