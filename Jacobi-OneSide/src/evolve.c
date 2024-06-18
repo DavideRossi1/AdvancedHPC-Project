@@ -10,26 +10,28 @@
 
 #include "evolve.h"
 
-void evolve( double* matrix, double* matrix_new, size_t nRows, size_t nCols, int prev, int next, struct Timer* t)
+void evolve( double* matrix, double* matrix_new, size_t nRows, size_t nCols, double* firstRow, double* lastRow)
 {
   // Update matrix_new using matrix values
-  start(t);
+  size_t currentEl;
+  // Update the first row
+#pragma omp parallel for
+  for(size_t j = 1; j < nCols-1; ++j)
+    matrix_new[j] = 0.25*( firstRow[j] + matrix[j+1] + 
+                       matrix[j+nCols] + matrix[j-1] );
+  // Update the inner rows
 #pragma omp parallel for collapse(2)
   for(size_t i = 1; i < nRows-1; ++i )
     for(size_t j = 1; j < nCols-1; ++j ) {
-      size_t currentEl = i*nCols + j;
+      currentEl = i*nCols + j;
       matrix_new[currentEl] = 0.25*( matrix[currentEl-nCols] + matrix[currentEl+1] + 
                                      matrix[currentEl+nCols] + matrix[currentEl-1] );
     }
-  t->update += end(t);
-  // Exchange the ghost rows
-  start(t);
-  MPI_Request send_request[2], recv_request[2];
-  MPI_Isend(&matrix_new[nCols], nCols, MPI_DOUBLE, prev, 1, MPI_COMM_WORLD, &send_request[0]);
-  MPI_Irecv(&matrix_new[0], nCols, MPI_DOUBLE, prev, 0, MPI_COMM_WORLD, &recv_request[0]);
-  MPI_Isend(&matrix_new[(nRows - 2) * nCols], nCols, MPI_DOUBLE, next, 0, MPI_COMM_WORLD, &send_request[1]);
-  MPI_Irecv(&matrix_new[(nRows - 1) * nCols], nCols, MPI_DOUBLE, next, 1, MPI_COMM_WORLD, &recv_request[1]);
-  MPI_Waitall(2, send_request, MPI_STATUSES_IGNORE);
-  MPI_Waitall(2, recv_request, MPI_STATUSES_IGNORE);
-  t->sendRecv += end(t);  
+  // Update the last row
+#pragma omp parallel for
+  for(size_t j = 1; j < nCols-1; ++j){
+    currentEl = (nRows-1)*nCols + j;
+    matrix_new[currentEl] = 0.25*( matrix[currentEl-nCols] + matrix[currentEl+1] + 
+                                                lastRow[j] + matrix[currentEl-1] );
+  }
 }

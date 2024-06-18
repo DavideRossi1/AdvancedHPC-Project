@@ -41,11 +41,6 @@ int main(int argc, char* argv[])
 
   size_t dim = atoi(argv[1]);
   size_t iterations = atoi(argv[2]);
-#ifdef DEBUG
-  if (dim>30 || iterations >30){  // emergency block in case I forgot to remove the debug flag
-#undef DEBUG
-}
-#endif
   size_t dimWithEdge = dim + 2;
   int prev = myRank ? myRank-1 : MPI_PROC_NULL;
   int next = myRank != NPEs-1 ? myRank+1 : MPI_PROC_NULL;

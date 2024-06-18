@@ -27,7 +27,7 @@ $(OBJDIR)/%.o: $(SRC)/%.c
 	@$(CC) $(FLAGS) -c $^ -o $@
 
 clean:
-	@rm -rf jacobi.x solution.* $(OBJDIR) $(OUTPUTDIR)
+	@rm -rf jacobi.x $(OBJDIR) $(OUTPUTDIR)
 
 plot:
 	@gnuplot -e "NITER=$(words $(wildcard output/*.dat))" -p plot.plt 

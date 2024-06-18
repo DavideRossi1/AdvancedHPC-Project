@@ -20,4 +20,4 @@
  * @param next next MPI process rank (MPI_PROC_NULL if not present)
  * @param shift shift used to correctly fill the first column
  */
-void init(double* matrix, double* matrix_new, size_t nRows, size_t nCols, int prev, int next, uint shift);
+void init(double* matrix, double* matrix_new, size_t nRows, size_t nCols, double* firstRow, double* lastRow, uint shift, uint myRank, uint NPEs);

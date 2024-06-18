@@ -37,12 +37,14 @@ whose solution can be iteratively found through Jacobi's method: if we discretiz
 
 
 - initialize the matrices as desired: the first matrix is filled with zeros, the second one with $0.5$, both with the same boundary conditions: $0$ in the upper and right boundaries, $100$ in the lower left corner, with increasing values starting from that corner and getting farther from it:
-![init](imgs/init.png)
-This is done using 4 loops:
-  - one to initialize both matrices with zeros;
-  - one to set $0.5$ for the internal points of the second matrix;
-  - one to set the first column;
-  - one to set the last row;
+  
+  ![init](imgs/init.png)
+
+  This is done using 4 loops:
+    - one to initialize both matrices with zeros;
+    - one to set $0.5$ for the internal points of the second matrix;
+    - one to set the first column;
+    - one to set the last row;
   
 - Iterate over the grid points, updating each point as the average of its neighbors:
 

@@ -10,7 +10,7 @@ OBJECTS=$(patsubst $(SRC)/%.c, $(OBJDIR)/%.o, $(wildcard $(SRC)/*.c))
 
 #FLAGS+=-DDEBUG
 
-main: $(OBJECTS) jacobi.c
+main: $(OBJECTS) main.c
 	@mkdir -p $(OUTPUTDIR)
 	@$(CC) $(FLAGS) $^ -o $@
 $(OBJDIR)/%.o: $(SRC)/%.c
@@ -18,7 +18,7 @@ $(OBJDIR)/%.o: $(SRC)/%.c
 	@$(CC) $(FLAGS) -c $^ -o $@
 
 clean:
-	@rm -rf jacobi.x solution.* $(OBJDIR) $(OUTPUTDIR)
+	@rm -rf main $(OBJDIR) $(OUTPUTDIR)
 
 plot:
 	@gnuplot -e "NITER=$(words $(wildcard output/*.dat))" -p plot.plt 
@@ -41,7 +41,7 @@ gif: main
 run:
 	@$(MAKE) clean $(PRINTDIR)
 	@$(MAKE) save $(PRINTDIR)
-	@mpirun -np $(NP) ./jacobi.x $(SZ) $(IT)
+	@mpirun -np $(NP) ./main $(SZ) $(IT)
 
 compare:
 	@$(MAKE) run $(PRINTDIR) NP=$(NP) SZ=$(SZ) IT=$(IT) >> /dev/null

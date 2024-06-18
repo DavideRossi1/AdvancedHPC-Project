@@ -7,6 +7,7 @@
  */
 #pragma once
 #include <stdlib.h>
+#include <mpi.h>
 
 /**
 * @brief Print the matrix in a distributed and thread-safe way: build a string that is printed by the master process
@@ -17,7 +18,7 @@
 * @param myRank MPI rank of the executing process
 * @param NPEs total number of MPI processes
 */
-void printMatrixThrSafe(double *matrix, uint nRows, uint nCols, uint myRank, uint NPEs);
+void printMatrixThrSafe(double *matrix, uint nRows, uint nCols, uint myRank, uint NPEs, double* firstRow, MPI_Win lastRowWin);
 
 
 /**
@@ -40,7 +41,7 @@ void printMatrixThrSafe(double *matrix, uint nRows, uint nCols, uint myRank, uin
  * @param myRank MPI rank of the executing process
  * @param NPEs total number of MPI processes
  */
-void printMatrixDistributed(double *matrix, uint nRows, uint nCols, uint myRank, uint NPEs);
+void printMatrixDistributed(double *matrix, uint nRows, uint nCols, uint myRank, uint NPEs, double* firstRow, MPI_Win lastRowWin);
 
 
 /**
@@ -63,4 +64,4 @@ void printMatrix(double *matrix, uint nRows, uint nCols);
  * @param shift used to compute the correct position of the file where the current process has to write
  * @param it the iteration number, used to name the output file
  */
-void save_gnuplot( double *M, size_t dim, uint start, uint end, uint shift, size_t it);
+void save_gnuplot( double *M, size_t nRows, size_t nCols, uint shift, size_t it, double* firstRow, double* lastRow);
