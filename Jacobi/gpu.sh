@@ -28,8 +28,7 @@ make gpusave
 echo "initacc;copyin;init;update;sendrecv;evolve;save;copyout;total" >> $file
 for nTasks in 1 2 4 8 16 32
 do
-        echo $nTasks >> $file
-        mpirun -np $nTasks ./jacobi.x $size $nIter >> $file
+        srun --ntasks $nTasks ./jacobi.x $size $nIter >> $file
 done
 
 size=12000
@@ -39,8 +38,7 @@ file=data/gpu$size.csv
 echo "initacc;copyin;init;update;sendrecv;evolve;save;copyout;total" >> $file
 for nTasks in 1 2 4 8 16 32
 do
-        echo $nTasks >> $file
-        mpirun -np $nTasks ./jacobi.x $size $nIter >> $file
+        srun --ntasks $nTasks ./jacobi.x $size $nIter >> $file
 done
 
 make clean
@@ -53,8 +51,7 @@ file=data/gpu$size.csv
 echo "initacc;copyin;init;update;sendrecv;evolve;save;copyout;total" >> $file
 for nTasks in 1 2 4 8 16 32
 do
-        echo $nTasks >> $file
-        mpirun -np $nTasks ./jacobi.x $size $nIter >> $file
+        srun --ntasks $nTasks ./jacobi.x $size $nIter >> $file
 done
 
 echo "Done"

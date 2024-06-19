@@ -12,26 +12,26 @@ module load openmpi/4.1.6--nvhpc--23.11
 echo "Running on $SLURM_NNODES nodes"
 
 make clean
-make cpusave
+make save
 
 size=1200
 nIter=10
 file=data/cpu$size.csv
 
-echo "initacc;copyin;init;update;sendrecv;evolve;save;copyout;total" >> $file
+echo "init;update;comm;evolve;save;total" >> $file
 for nTasks in 1 2 4 8 16
 do
-        srun -N $nTasks ./jacobi.x $size $nIter >> $file
+        srun -N $nTasks ./main $size $nIter >> $file
 done
 
 size=12000
 nIter=10
 file=data/cpu$size.csv
 
-echo "initacc;copyin;init;update;sendrecv;evolve;save;copyout;total" >> $file
+echo "init;update;comm;evolve;save;total" >> $file
 for nTasks in 1 2 4 8 16
 do
-        srun -N $nTasks ./jacobi.x $size $nIter >> $file
+        srun -N $nTasks ./main $size $nIter >> $file
 done
 
 

@@ -4,8 +4,8 @@ OBJDIR=obj
 SRC=src
 PRINTDIR=--no-print-directory
 
-CFLAGS=-I$(INCLUDE) # compilation flags
-MAINFLAGS=$(CFLAGS) # flags for main file
+CFLAGS=-I$(INCLUDE) $(OPENMP) # compilation flags
+MAINFLAGS=-I$(INCLUDE) # flags for main file
 LINKFLAGS=$(CFLAGS) # flags for linking
 
 OPT=-Wall -Wextra -march=native -O3
@@ -20,15 +20,16 @@ OBJECTS=$(OBJDIR)/main.o $(patsubst $(SRC)/%.c, $(OBJDIR)/%.o, $(wildcard $(SRC)
 
 #CFLAGS+=-DDEBUG
 
-naive: CFLAGS+=$(OPT) $(OPENMP)
+naive: CFLAGS+=$(OPT)
 naive: main
 
-cpu: CFLAGS+=$(CBLAS) $(OPT) $(OPENMP)
+cpu: CFLAGS+=$(CBLAS) $(OPT)
+cpu: MAINFLAGS+=$(CBLAS)
 cpu: main
 
 gpu: CFLAGS+=$(CUDA)
 gpu: MAINFLAGS+=$(COMPCAPABILITY)
-gpu: LINKFLAGS=$(LDFLAGS)
+gpu: LINKFLAGS=$(LDFLAGS) -lnvomp
 gpu: CC=nvcc
 gpu: MAIN=main.cu
 gpu: prepare_main # for GPU computation, rename main.c to main.cu
@@ -36,12 +37,12 @@ gpu: main
 gpu: cleanup_main # rename main.cu back to main.c
 
 main: $(OBJECTS)
-	$(CC) $(LINKFLAGS) $^ -o $@
+	@$(CC) $(LINKFLAGS) $^ -o $@
 $(OBJDIR)/main.o:
 	@mkdir -p $(OBJDIR)
-	$(CC) $(MAINFLAGS) -c $(MAIN) -o $@
+	@$(CC) $(MAINFLAGS) -c $(MAIN) -o $@
 $(OBJDIR)/%.o: $(SRC)/%.c
-	mpicc $(CFLAGS) -c $< -o $@
+	@mpicc $(CFLAGS) -c $< -o $@
 
 prepare_main:
 	@mv main.c main.cu

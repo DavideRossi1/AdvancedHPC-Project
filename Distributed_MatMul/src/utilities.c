@@ -12,6 +12,7 @@
 
 void naiveMult(double *A, double *B, double *C, uint nRowsA, uint nColsARowsB, uint nColsB, uint startingCol) 
 {
+#pragma omp parallel for collapse(2)
     for (uint i = 0; i < nRowsA; i++)
       for (uint j = 0; j < nColsB; j++)
         for (uint k = 0; k < nColsARowsB; k++)

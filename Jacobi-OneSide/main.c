@@ -44,8 +44,8 @@ int main(int argc, char* argv[])
   double* lastRowSend = myRank < NPEs-1 ? NULL : lastRow;
 
   MPI_Win firstRowWin, lastRowWin;
-  MPI_Win_create(firstRow, my_byte_dim, sizeof(double), MPI_INFO_NULL, MPI_COMM_WORLD, &firstRowWin);
-  MPI_Win_create(lastRow, my_byte_dim, sizeof(double), MPI_INFO_NULL, MPI_COMM_WORLD, &lastRowWin);
+  MPI_Win_create(firstRow, dimWithEdges*sizeof(double), sizeof(double), MPI_INFO_NULL, MPI_COMM_WORLD, &firstRowWin);
+  MPI_Win_create(lastRow, dimWithEdges*sizeof(double), sizeof(double), MPI_INFO_NULL, MPI_COMM_WORLD, &lastRowWin);
   start(&t);
   init( matrix, matrix_new, myWorkSize, dimWithEdges, firstRow, lastRow, shift, myRank, NPEs);
   t.init = end(&t);

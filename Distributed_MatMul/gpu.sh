@@ -9,7 +9,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:4
 #SBATCH --exclusive
-#SBATCH --time=00:30:00
+#SBATCH --time=01:00:00
 
 module load openmpi/4.1.6--nvhpc--23.11
 
@@ -18,7 +18,7 @@ echo "Running on $SLURM_NNODES nodes"
 export OMP_PLACES=cores
 export OMP_PROC_BIND=close
 
-size=45000
+size=5000
 file=data/gpu$size.csv
 
 make clean
@@ -27,8 +27,23 @@ make gpu
 echo "initCuda;init;initComm;gather;resAlloc;dGemm;place;mult;total" >> $file
 for nTasks in 1 2 4 8 16 32
 do
-        echo $nTasks >> $file
-        mpirun -np $nTasks ./main $size >> $file
+        srun --ntasks $nTasks ./main $size >> $file
+done
+
+size=10000
+file=data/gpu$size.csv
+echo "initCuda;init;initComm;gather;resAlloc;dGemm;place;mult;total" >> $file
+for nTasks in 1 2 4 8 16 32
+do
+        srun --ntasks $nTasks ./main $size >> $file
+done
+
+size=45000
+file=data/gpu$size.csv
+echo "initCuda;init;initComm;gather;resAlloc;dGemm;place;mult;total" >> $file
+for nTasks in 1 2 4 8 16 32
+do
+        srun --ntasks $nTasks ./main $size >> $file
 done
 
 echo "Done"

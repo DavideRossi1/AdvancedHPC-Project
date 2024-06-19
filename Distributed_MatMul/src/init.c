@@ -29,9 +29,13 @@ void initID(double* matrix, uint nRows, uint nCols, uint myRank, uint NPEs)
 
 void initRandom(double* matrix, size_t nElements)
 {
-#pragma omp parallel for
+#pragma omp parallel
+{
+    uint seed = omp_get_thread_num();
+    #pragma omp for
     for (size_t i = 0; i < nElements; i++)
-        matrix[i] = (double)rand() / RAND_MAX;
+        matrix[i] = (double)rand_r(&seed) / RAND_MAX;
+}
 }
 
 void initAll(double* myA, double* myB, double* myC, uint nRows, uint nCols, uint myRank, uint NPEs)
