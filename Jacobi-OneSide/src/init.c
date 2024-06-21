@@ -48,7 +48,7 @@ void init(double* matrix, double* matrix_new, size_t nRows, size_t nCols, double
     for (size_t i = 1; i < nCols-1; i++) lastRow[i] = 0.5;
   } else {
 #pragma omp for
-    for(size_t i = 0; i < nCols; ++i ) lastRow[nCols-1-i] = i*increment;
+    for(size_t i = 0; i < nCols; i++ ) lastRow[nCols-1-i] = i*increment;
   }
 }
 }

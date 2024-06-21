@@ -18,10 +18,10 @@ int main(int argc, char* argv[])
   MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
   MPI_Comm_size(MPI_COMM_WORLD, &NPEs);  
 
-  struct Timer t = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+  struct Timer t = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
   MPI_Barrier(MPI_COMM_WORLD);
   t.programStart = MPI_Wtime();
-
+  start(&t);
   size_t dim = atoi(argv[1]);
   size_t dimWithEdges = dim + 2;
   size_t iterations = atoi(argv[2]);
@@ -39,13 +39,18 @@ int main(int argc, char* argv[])
 
   double *firstRow = (double *)malloc(dimWithEdges * sizeof(double));
   double *lastRow = (double *)malloc(dimWithEdges * sizeof(double));
-
+#if defined(SAVEGIF) || defined(SAVEPLOT) 
   double* firstRowSend = myRank ? NULL : firstRow;
   double* lastRowSend = myRank < NPEs-1 ? NULL : lastRow;
-
+#endif
   MPI_Win firstRowWin, lastRowWin;
-  MPI_Win_create(firstRow, dimWithEdges*sizeof(double), sizeof(double), MPI_INFO_NULL, MPI_COMM_WORLD, &firstRowWin);
-  MPI_Win_create(lastRow, dimWithEdges*sizeof(double), sizeof(double), MPI_INFO_NULL, MPI_COMM_WORLD, &lastRowWin);
+  MPI_Info info;
+  MPI_Info_create(&info);
+  MPI_Info_set(info, "same_size", "true");
+  MPI_Info_set(info, "same_disp_unit", "true");
+  MPI_Win_create(firstRow, dimWithEdges*sizeof(double), sizeof(double), info, MPI_COMM_WORLD, &firstRowWin);
+  MPI_Win_create(lastRow, dimWithEdges*sizeof(double), sizeof(double), info, MPI_COMM_WORLD, &lastRowWin);
+  t.initPar = end(&t);
   start(&t);
   init( matrix, matrix_new, myWorkSize, dimWithEdges, firstRow, lastRow, shift, myRank, NPEs);
   t.init = end(&t);
@@ -67,12 +72,16 @@ int main(int argc, char* argv[])
     t.update += end(&t);
     MPI_Barrier(MPI_COMM_WORLD);
     start(&t);
-    MPI_Win_fence(0, firstRowWin);
-    MPI_Put(&matrix_new[(myWorkSize-1)*dimWithEdges], dimWithEdges, MPI_DOUBLE, next, 0, dimWithEdges, MPI_DOUBLE, firstRowWin);
-    MPI_Win_fence(0, firstRowWin);
-    MPI_Win_fence(0, lastRowWin);
-    MPI_Put(matrix_new, dimWithEdges, MPI_DOUBLE, prev, 0, dimWithEdges, MPI_DOUBLE, lastRowWin);
-    MPI_Win_fence(0, lastRowWin);
+    if(myRank<NPEs-1){
+      MPI_Win_lock(MPI_LOCK_EXCLUSIVE, next, MPI_MODE_NOCHECK, firstRowWin);
+      MPI_Put(&matrix_new[(myWorkSize-1)*dimWithEdges], dimWithEdges, MPI_DOUBLE, next, 0, dimWithEdges, MPI_DOUBLE, firstRowWin);
+      MPI_Win_unlock(next, firstRowWin);
+    }
+    if(myRank){
+      MPI_Win_lock(MPI_LOCK_EXCLUSIVE, prev, MPI_MODE_NOCHECK, lastRowWin);
+      MPI_Put(matrix_new, dimWithEdges, MPI_DOUBLE, prev, 0, dimWithEdges, MPI_DOUBLE, lastRowWin);
+      MPI_Win_unlock(prev, lastRowWin);
+    }
     t.comm += end(&t);
     tmp_matrix = matrix;
     matrix = matrix_new;

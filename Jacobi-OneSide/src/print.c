@@ -130,14 +130,12 @@ void save_gnuplot( double *M, size_t nRows, size_t nCols, uint shift, size_t it,
   sprintf(filename, "output/solution%zu.dat", it);
   MPI_File_open(MPI_COMM_WORLD, filename, MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &file);
   if (firstRow != NULL){
-#pragma omp parallel for
     for (size_t j = 0; j < nCols; j++){
       double buffer[3] = {h*j, -h*shift, firstRow[j]};
       MPI_File_write_at(file, j*3*sizeof(double), buffer, 3, MPI_DOUBLE, MPI_STATUS_IGNORE);
     }
   }
   MPI_Offset of = shift*nCols*3*sizeof(double);
-#pragma omp parallel for collapse(2)
   for (size_t i = 0; i < nRows; i++){
     for (size_t j = 0; j < nCols; j++){
       double buffer[3] = {h*j, -h*(shift+i+1), M[i*nCols+j]};
@@ -145,7 +143,6 @@ void save_gnuplot( double *M, size_t nRows, size_t nCols, uint shift, size_t it,
     }
   }
   if (lastRow != NULL){
-#pragma omp parallel for
     for (size_t j = 0; j < nCols; j++){
       double buffer[3] = {h*j, -h*(shift+nRows+1), lastRow[j]};
       MPI_File_write_at(file, of + ((nRows+1)*nCols+j)*3*sizeof(double), buffer, 3, MPI_DOUBLE, MPI_STATUS_IGNORE);

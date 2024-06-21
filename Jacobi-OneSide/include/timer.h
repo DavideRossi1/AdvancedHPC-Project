@@ -13,6 +13,7 @@
  * 
  */
 struct Timer{
+    double initPar;
     double init;
     double update;
     double comm;

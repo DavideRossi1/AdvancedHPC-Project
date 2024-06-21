@@ -18,20 +18,27 @@ size=1200
 nIter=10
 file=data/cpu$size.csv
 
-echo "init;update;comm;evolve;save;total" >> $file
-for nTasks in 1 2 4 8 16
+echo "initPar;init;update;comm;evolve;save;total" >> $file
+for nTasks in 8 16
 do
-        srun -N $nTasks ./main $size $nIter >> $file
+        for i in {1..3}
+        do
+                echo $nTasks >> $file
+                srun -N $nTasks ./main $size $nIter >> $file
+        done
 done
 
 size=12000
 nIter=10
 file=data/cpu$size.csv
 
-echo "init;update;comm;evolve;save;total" >> $file
-for nTasks in 1 2 4 8 16
+echo "initPar;init;update;comm;evolve;save;total" >> $file
+for nTasks in 8 16
 do
-        srun -N $nTasks ./main $size $nIter >> $file
+        for i in {1..3}
+        do    
+                srun -N $nTasks ./main $size $nIter >> $file
+        done
 done
 
 
