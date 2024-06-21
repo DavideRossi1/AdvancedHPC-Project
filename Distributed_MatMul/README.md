@@ -108,23 +108,37 @@ As we can see, the entire execution time is occupied by the computation of the p
 
 ![naivenomult](imgs/results/naiveNomult.png)
 
-Excluding `dGemm` time, `init` time seems to be the most time consuming part of the code (still 2 orders of magnitude far from product part though). Let's try to remove it as well:
+Excluding `dGemm` time, `init` and `gather` seem to be the most time consuming parts of the code (still nearly 2 orders of magnitude far from product part though). In order to understand how the code scales with the size, let's also plot the results for 10000x10000 matrices:
 
-![naivenomult](imgs/results/naiveNoinit.png)
+![naive10000](imgs/results/naive10000.png)
 
-`gather` time seems to stay constant, while `initComm` time seems to be extra scalar.
+Without the product part:
+
+![naive10000nomult](imgs/results/naive10000nomult.png)
+
+`init` seems to scale, as expected, while `gather` time is fluctuating.
 
 ### CPU - BLAS
 
 ![cpuall](imgs/results/cpuall.png)
 
-Also in this case, `dGemm` and `init` time are the most time consuming parts of the code, as we would expect. However, `dGemm` time is now 2 orders of magnitude smaller than in the naive case and comparable to `init` time. Let's try to remove them to study the other parts of the code:
-
-![cpunoinit](imgs/results/cpuNoinit.png)
+Also in this case, `dGemm` is the most time consuming part of the code, as we would expect. However, `dGemm` time is now ~20 times smaller than in the naive case, hence `gather` and `init` are quite significant now. 
 
 `gather` and `initComm` time have the same behavior as in the naive case. Notice that:
-- `place` time was not present in the naive case, since the product was directly placed in `myC`, while in this case we first compute the product and then place it in `myC`. However, the time spent in `place` is negligible with respect to the time spent in `dGemm` and `init`;
+- `place` time was not present in the naive case, since the product was directly placed in `myC`, while in this case we first compute the product and then place it in `myC`. However, the time spent in `place` is negligible with respect to the time spent in `dGemm`, `init` and `gather`;
 - for both naive and CPU version, `resAlloc` time is practically zero, since the matrices are allocated only in the CPU. We'll see that this won't be the case in the GPU version.
+
+Let's see how the code scales with the size:
+
+![cpu10000](imgs/results/cpu10000.png)
+
+Results are a bit better than before but `gather` is still quite impactant. Let's try with bigger matrices:
+
+![cpu30000](imgs/results/cpu30000.png)
+
+![cpu45000](imgs/results/cpu45000.png)
+
+As we can see, the time spent in `gather` rapidly becomes the real bottleneck of the code.
 
 ### GPU
 
@@ -161,9 +175,11 @@ Let's remove `resAlloc` as well to see how the other parts behave:
 
 ### Comparison
 
-Let's compare the results obtained by the three algorithms on 5000x5000 matrices:
+Let's compare the results obtained by the three algorithms:
 
-![comp](imgs/results/comparison.png)
+![comp](imgs/results/comparison5000.png)
+
+![comp](imgs/results/comparison10000.png) 
 
 ## How to run
 

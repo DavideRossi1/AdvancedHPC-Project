@@ -123,15 +123,19 @@ Let's start with the CPU version:
 
 ![cpu1200](imgs/results/cpu1200.png)
 
-As we can see, scalability is pretty good but, with high number of processes, it is limited by the very low time spent. As we would expect, `init` and `update` take almost all the time, with `update` being the most time-consuming part. However, as the number of MPI tasks increases, we can see that the time spent on `sendrecv` increases, being nearly comparable with the time spent on the other two parts for 16 MPI tasks.
+As we can see, there is basically no scalability due to the very low time spent. `init` takes almost all the time, with `update` being quite irrelevant due to the very low number of updates done. Ss the number of MPI tasks increases, we can see that the time spent on `sendrecv` increases a bit as we would expect.
 
-Let's see how things change with a larger matrix: by multiplying the size by 10, we expect the time to increase by a factor of 100, since the time scales quadratically with the size of the matrix:
+Let's see how things change with a larger matrix:
 
 ![cpu12000](imgs/results/cpu12000.png)
 
-Speedup is greatly improved with more MPI tasks, and the time spent on `sendrecv` is now totally negligible: basically the entire computation time is spent on initialization and update of the matrix.
+Speedup is greatly improved now, and the time spent on `update` is now relevant, although `init` is still the most time-consuming part of the code, but scalability interrupts after 4 tasks. Let's see what happens with a much larger matrix and more iterations:
 
-Also, the time spent on the 12000x12000 matrix is about 100 times the time spent on the 1200x1200 matrix at parity of the number of MPI tasks, as we expected.
+![cpu40000](imgs/results/cpu40000.png)
+
+We can finally appreciate a great scalability, with the time spent on `update` being the most relevant part of the code, as we would expect.
+
+
 
 ### GPU
 
@@ -165,7 +169,7 @@ Up to now we have ignored the `save` time, let's now see how it affects the perf
 
 ![save](imgs/results/12000save.png)
 
-As we can see, using MPI-IO we are able to save some time writing on file in parallel (although the scalability is not perfect), but the time spent on this part is still by far the most time-consuming part of the code.
+As we can see, using MPI-IO we are able to save some time writing on file in parallel, but the time spent on this part is still by far the most time-consuming part of the code.
 
 ## How to run
 
