@@ -1,4 +1,4 @@
-# Exercise 2: Jacobi's Algorithm <!-- omit in toc -->
+# Exercise 2: Jacobi's Algorithm with OpenACC <!-- omit in toc -->
 
 ## Table of Contents <!-- omit in toc -->
 - [Introduction](#introduction)
@@ -60,7 +60,7 @@ The following gif shows the evolution of the matrix during 100 iterations:
 
 ## Distribute the domain: MPI
 
-Since at each iteration each point is updated independently on the others, this algorithm clearly opens the door to parallelization: each process can be assigned a subgrid of the domain, and the communication between processes is only needed at the boundaries of the subgrids.
+Since at each iteration each point is updated independently on the others (we only need their old value, which is constant during the update), this algorithm clearly opens the door to parallelization: each process can be assigned a subgrid of the domain, and the communication between processes is only needed at the boundaries of the subgrids.
 
 In this assignment, we will consider the domain to be distributed by rows among multiple MPI processes, hence each process will have a subgrid with a fixed number of rows of the entire grid (equal to the number of rows of the entire grid divided by the number of processes, plus two more rows, one above and one below, that will be needed to perform the update). Since in general the number of rows of the grid is not divisible by the number of processes, some processes will actually have one more row than the others:
 
@@ -106,7 +106,7 @@ Also, in order to execute the the rows exchange directly between GPUs, `acc host
 
 ## Results
 
-In this section we will analyze the performances obtained by the algorithm, both on CPU and on GPU. The code has been run on the Leonardo cluster, with up to 16 MPI tasks allocated one per node, for CPU versions, and up to 32 MPI tasks allocated four per node, one per GPU card, for the GPU version. The execution time has been measured with the `MPI_Wtime` function. The tests have been done with a matrix of size 1200x1200 and 12000x12000, with 10 evolution iterations, for the GPU version I have also used 40000x40000 and 1000 iterations to better study the scalability. The maximum time among all the MPI processes has been plotted. However, I have also collected data regarding the average time and they have showed the same behavior, meaning the workload is correctly distributed among the processes, for this reason they have not been plotted.
+In this section we will analyze the performances obtained by the algorithm, both on CPU and on GPU. The code has been run on the Leonardo cluster, with up to 16 MPI tasks allocated one per node, for CPU versions, and up to 32 MPI tasks allocated four per node, one per GPU card, for the GPU version. The execution time has been measured with the `MPI_Wtime` function. The tests have been done with a matrix of size 1200x1200 and 12000x12000, with 10 evolution iterations, and 40000x40000, with 1000 iterations, to better study the scalability. The maximum time among all the MPI processes has been plotted. However, I have also collected data regarding the average time and they have showed the same behavior, meaning the workload is correctly distributed among the processes, for this reason they have not been plotted.
 
 To easily identify the different parts of the code and plot them I have used some terms, here a brief explanation of them is given, in order of appearance in the code:
 - `initacc`: initialization of OpenACC, with `acc_get_num_devices`, `acc_set_device_num` and `acc_init`;
@@ -129,13 +129,11 @@ Let's see how things change with a larger matrix:
 
 ![cpu12000](imgs/results/cpu12000.png)
 
-Speedup is greatly improved now, and the time spent on `update` is now relevant, although `init` is still the most time-consuming part of the code, but scalability interrupts after 4 tasks. Let's see what happens with a much larger matrix and more iterations:
+We can start to appreciate some speedup, and the time spent on `update` is now relevant, although `init` is still the most time-consuming part of the code, but scalability still almost interrupts after 4 tasks. Let's see what happens with a much larger matrix and more iterations:
 
 ![cpu40000](imgs/results/cpu40000.png)
 
 We can finally appreciate a great scalability, with the time spent on `update` being the most relevant part of the code, as we would expect.
-
-
 
 ### GPU
 
@@ -159,7 +157,9 @@ Let's now compare the CPU and GPU versions with the same matrix size and number 
 
 ![comp](imgs/results/comparison.png)
 
-As we can see, if with a small matrix the GPU version is not convenient at all, with a larger matrix we can appreciate a significant improvement, and we expect the difference to be more and more significant as the matrix size increases.
+![comp](imgs/results/comparisonall.png)
+
+As we can see, if with a small matrix the GPU version is not convenient at all, with a larger matrix we can appreciate a significant boost in performances. 
 
 ### Save time
 
@@ -169,7 +169,7 @@ Up to now we have ignored the `save` time, let's now see how it affects the perf
 
 ![save](imgs/results/12000save.png)
 
-As we can see, using MPI-IO we are able to save some time writing on file in parallel, but the time spent on this part is still by far the most time-consuming part of the code.
+As we can see, using MPI-IO we are able to save some time writing on file in parallel, but this is still by far the most time-consuming part of the code.
 
 ## How to run
 

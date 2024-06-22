@@ -89,7 +89,7 @@ We first copy `columnB` to the GPU, then we compute the product and place it in 
 
 ## Results
 
-In this section we will analyze the results of the three versions of the algorithm. The code has been run on the Leonardo cluster, with up to 16 MPI tasks allocated one per node, for CPU versions, and up to 32 MPI tasks allocated four per node, one per GPU card, for the GPU version. The matrices have been generated randomly at each run and the execution time has been measured with the `MPI_Wtime` function. The tests have been done on matrices of size 5000x5000, but for the GPU version I have also used 45000x45000 matrices to better study the scalability. The maximum time among all the MPI processes has been plotted. However, I have also collected data regarding the average time and they have showed the same behavior, meaning the workload is correctly distributed among the processes, for this reason they have not been plotted.
+In this section we will analyze the results of the three versions of the algorithm. The code has been run on the Leonardo cluster, with up to 16 MPI tasks allocated one per node, for CPU versions, and up to 32 MPI tasks allocated four per node, one per GPU card, for the GPU version. The matrices have been generated randomly at each run and the execution time has been measured with the `MPI_Wtime` function. The tests have been done on matrices of various sizes, in order to compare CPU and GPU performances and also evaluate the scalability. The maximum time among all the MPI processes has been plotted. However, I have also collected data regarding the average time and they have showed the same behavior, meaning the workload is correctly distributed among the processes, for this reason they have not been plotted.
 
 To easily identify the different parts of the code and plot them I have used some terms, here a brief explanation of them is given, in order of appearance in the code:
 - `initCuda`: initialization of Cuda, with `cudaGetDeviceCount` and `cudaSetDevice`;
@@ -108,7 +108,7 @@ As we can see, the entire execution time is occupied by the computation of the p
 
 ![naivenomult](imgs/results/naiveNomult.png)
 
-Excluding `dGemm` time, `init` and `gather` seem to be the most time consuming parts of the code (still nearly 2 orders of magnitude far from product part though). In order to understand how the code scales with the size, let's also plot the results for 10000x10000 matrices:
+Excluding `dGemm` time, `init` and `gather` seem to be the most time consuming parts of the code (still nearly 2 orders of magnitude far from product part though). Also, `gather` reaches a peak with 16 processes, possibly due to the computational resources' physical position (in different trials, with different allocated nodes, gather time varied a lot). In order to understand how the code scales with the size, let's also plot the results for 10000x10000 matrices:
 
 ![naive10000](imgs/results/naive10000.png)
 
