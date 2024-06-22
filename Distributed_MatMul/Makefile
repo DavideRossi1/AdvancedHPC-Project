@@ -27,8 +27,8 @@ cpu: CFLAGS+=$(CBLAS) $(OPT)
 cpu: MAINFLAGS+=$(CBLAS)
 cpu: main
 
-gpu: CFLAGS+=$(CUDA)
-gpu: MAINFLAGS+=$(COMPCAPABILITY)
+gpu: CFLAGS+=$(CUDA) $(OPENMP)
+gpu: MAINFLAGS+=$(COMPCAPABILITY) $(CUDA)
 gpu: LINKFLAGS=$(LDFLAGS) -lnvomp
 gpu: CC=nvcc
 gpu: MAIN=main.cu

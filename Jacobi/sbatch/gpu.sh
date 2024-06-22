@@ -17,6 +17,7 @@ echo "Running on $SLURM_NNODES nodes"
 
 export OMP_PLACES=cores
 export OMP_PROC_BIND=close
+export OMP_NUM_THREADS=8
 
 size=1200
 nIter=10
@@ -28,7 +29,7 @@ make gpusave
 echo "initacc;copyin;init;update;sendrecv;evolve;save;copyout;total" >> $file
 for nTasks in 1 2 4 8 16 32
 do
-        srun --ntasks $nTasks ./jacobi.x $size $nIter >> $file
+        mpirun -np $nTasks ./jacobi.x $size $nIter >> $file
 done
 
 size=12000
@@ -38,7 +39,7 @@ file=data/gpu$size.csv
 echo "initacc;copyin;init;update;sendrecv;evolve;save;copyout;total" >> $file
 for nTasks in 1 2 4 8 16 32
 do
-        srun --ntasks $nTasks ./jacobi.x $size $nIter >> $file
+        mpirun -np $nTasks ./jacobi.x $size $nIter >> $file
 done
 
 make clean
@@ -51,7 +52,7 @@ file=data/gpu$size.csv
 echo "initacc;copyin;init;update;sendrecv;evolve;save;copyout;total" >> $file
 for nTasks in 1 2 4 8 16 32
 do
-        srun --ntasks $nTasks ./jacobi.x $size $nIter >> $file
+        mpirun -np $nTasks ./jacobi.x $size $nIter >> $file
 done
 
 echo "Done"

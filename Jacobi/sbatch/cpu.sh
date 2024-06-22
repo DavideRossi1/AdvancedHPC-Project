@@ -11,17 +11,21 @@ module load openmpi/4.1.6--nvhpc--23.11
 
 echo "Running on $SLURM_NNODES nodes"
 
+export OMP_PLACES=cores
+export OMP_PROC_BIND=close
+export OMP_NUM_THREADS=112
+
 make clean
-make cpusave
+make cpu
 
 size=1200
 nIter=10
 file=data/cpu$size.csv
 
 echo "initacc;copyin;init;update;sendrecv;evolve;save;copyout;total" >> $file
-for nTasks in 1 2 4 8 16
+for nTasks in 4 8 16
 do
-        srun -N $nTasks ./jacobi.x $size $nIter >> $file
+        mpirun -np $nTasks --map-by node --bind-to none ./jacobi.x $size $nIter >> $file
 done
 
 size=12000
@@ -29,10 +33,22 @@ nIter=10
 file=data/cpu$size.csv
 
 echo "initacc;copyin;init;update;sendrecv;evolve;save;copyout;total" >> $file
-for nTasks in 1 2 4 8 16
+for nTasks in 4 8 16
 do
-        srun -N $nTasks ./jacobi.x $size $nIter >> $file
+        mpirun -np $nTasks --map-by node --bind-to none ./jacobi.x $size $nIter >> $file
 done
 
+make clean
+make cpu
+
+size=40000
+nIter=1000
+file=data/cpu$size.csv
+
+echo "initacc;copyin;init;update;sendrecv;evolve;save;copyout;total" >> $file
+for nTasks in 4 8 16
+do
+        mpirun -np $nTasks --map-by node --bind-to none ./jacobi.x $size $nIter >> $file
+done
 
 echo "Done"

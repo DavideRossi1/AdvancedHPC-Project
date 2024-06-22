@@ -15,6 +15,7 @@ echo "Running on $SLURM_NNODES nodes"
 
 export OMP_PLACES=cores
 export OMP_PROC_BIND=close
+export OMP_NUM_THREADS=112
 
 size=5000
 file=data/naive$size.csv
@@ -22,7 +23,7 @@ make clean
 make naive
 echo "initCuda;init;initComm;gather;resAlloc;dGemm;place;mult;total" >> $file
 for nNodes in 1 2 4 8 16
-        do srun -N $nNodes ./main $size >> $file
+        do mpirun -np $nNodes --map-by node --bind-to none ./main $size >> $file
 done
 
 file=data/cpu$size.csv
@@ -30,7 +31,36 @@ make clean
 make cpu
 echo "initCuda;init;initComm;gather;resAlloc;dGemm;place;mult;total" >> $file
 for nNodes in 1 2 4 8 16
-        do srun -N $nNodes ./main $size >> $file
+        do mpirun -np $nNodes --map-by node --bind-to none ./main $size >> $file
 done
+
+
+
+size=10000
+file=data/naive$size.csv
+make clean
+make naive
+echo "initCuda;init;initComm;gather;resAlloc;dGemm;place;mult;total" >> $file
+for nNodes in 1 2 4 8 16
+        do mpirun -np $nNodes --map-by node --bind-to none ./main $size >> $file
+done
+
+file=data/cpu$size.csv
+make clean
+make cpu
+echo "initCuda;init;initComm;gather;resAlloc;dGemm;place;mult;total" >> $file
+for nNodes in 1 2 4 8 16
+        do mpirun -np $nNodes --map-by node --bind-to none ./main $size >> $file
+done
+
+size=45000
+file=data/cpu$size.csv
+make clean
+make cpu
+echo "initCuda;init;initComm;gather;resAlloc;dGemm;place;mult;total" >> $file
+for nNodes in 1 2 4 8 16
+        do mpirun -np $nNodes --map-by node --bind-to none ./main $size >> $file
+done
+
 
 echo "Done"
