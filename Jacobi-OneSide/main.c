@@ -25,8 +25,6 @@ int main(int argc, char* argv[])
   size_t dim = atoi(argv[1]);
   size_t dimWithEdges = dim + 2;
   size_t iterations = atoi(argv[2]);
-  int prev = myRank ? myRank-1 : MPI_PROC_NULL;
-  int next = myRank != NPEs-1 ? myRank+1 : MPI_PROC_NULL;
 
   const uint workSize = dim/NPEs;
   const uint workSizeRemainder = dim % NPEs;
@@ -73,14 +71,16 @@ int main(int argc, char* argv[])
     MPI_Barrier(MPI_COMM_WORLD);
     start(&t);
     if(myRank<NPEs-1){
-      MPI_Win_lock(MPI_LOCK_EXCLUSIVE, next, MPI_MODE_NOCHECK, firstRowWin);
-      MPI_Put(&matrix_new[(myWorkSize-1)*dimWithEdges], dimWithEdges, MPI_DOUBLE, next, 0, dimWithEdges, MPI_DOUBLE, firstRowWin);
-      MPI_Win_unlock(next, firstRowWin);
+      MPI_Win_lock(MPI_LOCK_EXCLUSIVE, myRank+1, MPI_MODE_NOCHECK, firstRowWin);
+      MPI_Put(&matrix_new[(myWorkSize-1)*dimWithEdges], dimWithEdges, MPI_DOUBLE, 
+                                          myRank+1, 0, dimWithEdges, MPI_DOUBLE, firstRowWin);
+      MPI_Win_unlock(myRank+1, firstRowWin);
     }
     if(myRank){
-      MPI_Win_lock(MPI_LOCK_EXCLUSIVE, prev, MPI_MODE_NOCHECK, lastRowWin);
-      MPI_Put(matrix_new, dimWithEdges, MPI_DOUBLE, prev, 0, dimWithEdges, MPI_DOUBLE, lastRowWin);
-      MPI_Win_unlock(prev, lastRowWin);
+      MPI_Win_lock(MPI_LOCK_EXCLUSIVE, myRank-1, MPI_MODE_NOCHECK, lastRowWin);
+      MPI_Put(matrix_new, dimWithEdges, MPI_DOUBLE, 
+            myRank-1, 0, dimWithEdges, MPI_DOUBLE, lastRowWin);
+      MPI_Win_unlock(myRank-1, lastRowWin);
     }
     t.comm += end(&t);
     tmp_matrix = matrix;

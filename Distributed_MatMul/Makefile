@@ -33,12 +33,12 @@ gpu: MAIN = main.cu
 gpu: prepare_main  main  cleanup_main # for GPU computation, rename main.c to main.cu before compilation, and rename it back after compilation
 
 main: $(OBJECTS)
-	$(CC) $(LINKFLAGS) $^ -o $@
+	@$(CC) $(LINKFLAGS) $^ -o $@
 $(OBJDIR)/main.o:
 	@mkdir -p $(OBJDIR)
-	$(CC) $(MAINFLAGS) -c $(MAIN) -o $@
+	@$(CC) $(MAINFLAGS) -c $(MAIN) -o $@
 $(OBJDIR)/%.o: $(SRC)/%.c
-	mpicc $(CFLAGS) -c $< -o $@
+	@mpicc $(CFLAGS) -c $< -o $@
 
 prepare_main:
 	@mv main.c main.cu
@@ -57,8 +57,7 @@ cpurun: run
 gpurun: FUNC=gpu
 gpurun: run
 	
-run:
-	@$(MAKE) clean $(PRINTDIR)
+run: clean
 	@$(MAKE) $(FUNC) $(PRINTDIR)
 	@mpirun -np $(NP) ./main $(SZ)
 

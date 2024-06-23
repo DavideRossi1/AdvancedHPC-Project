@@ -30,7 +30,7 @@ void init(double* matrix, double* matrix_new, size_t nRows, size_t nCols, double
     matrix[ (i+1)*nCols - 1 ] = 0.0;
     matrix_new[ (i+1)*nCols - 1 ] = 0.0;
   }
-
+  // fill the first row
   if (myRank) {
     firstRow[0] = shift*increment;
     firstRow[nCols-1] = 0.0;
@@ -40,7 +40,7 @@ void init(double* matrix, double* matrix_new, size_t nRows, size_t nCols, double
 #pragma omp for
     for (size_t i = 0; i < nCols; i++) firstRow[i] = 0.0;
   }
-
+  // fill the last row
   if (myRank < NPEs-1) {
     lastRow[0] = (nRows+shift+1)*increment;
     lastRow[nCols-1] = 0.0;

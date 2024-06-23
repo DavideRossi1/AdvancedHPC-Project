@@ -3,13 +3,13 @@
 #SBATCH --job-name="gpu-matMul"
 #SBATCH --account ict24_dssc_gpu
 #SBATCH --partition=boost_usr_prod
-#SBATCH --nodes=8
-#SBATCH --ntasks=32
+#SBATCH --nodes=2
+#SBATCH --ntasks=8
 #SBATCH --ntasks-per-node=4
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:4
 #SBATCH --exclusive
-#SBATCH --time=01:00:00
+#SBATCH --time=00:30:00
 
 module load openmpi/4.1.6--nvhpc--23.11
 
@@ -26,7 +26,7 @@ make clean
 make gpu
 
 echo "initCuda;init;initComm;gather;resAlloc;dGemm;place;mult;total" >> $file
-for nTasks in 1 2 4 8 16 32
+for nTasks in 1 2
 do
         mpirun -np $nTasks --map-by ppr:4:node --bind-to core ./main $size >> $file
 done
@@ -34,7 +34,7 @@ done
 size=10000
 file=data/gpu$size.csv
 echo "initCuda;init;initComm;gather;resAlloc;dGemm;place;mult;total" >> $file
-for nTasks in 1 2 4 8 16 32
+for nTasks in 1 2
 do
         mpirun -np $nTasks --map-by ppr:4:node --bind-to core ./main $size >> $file
 done
@@ -42,7 +42,7 @@ done
 size=45000
 file=data/gpu$size.csv
 echo "initCuda;init;initComm;gather;resAlloc;dGemm;place;mult;total" >> $file
-for nTasks in 1 2 4 8 16 32
+for nTasks in 1 2
 do
         mpirun -np $nTasks --map-by ppr:4:node --bind-to core ./main $size >> $file
 done

@@ -24,11 +24,11 @@ Before digging into the implementation of the three versions, let's first descri
 
 ## Matrix-Matrix Multiplication using MPI
 
-Matrix-matrix multiplication is a fundamental operation in linear algebra and a good exercise to implement in a distributed environment, and consists in computing $C=A\times B$, where A is a $m\times n$ matrix, B is a $n\times l$ matrix and the output $C$ is a $m\times l$ matrix. The implementation of a distributed matrix-matrix multiplication lies on two main concepts:
+Matrix-matrix multiplication is a fundamental operation in linear algebra and a good exercise to implement in a distributed environment. It consists in computing $C=A\times B$, where A is a $m\times n$ matrix, B is a $n\times l$ matrix and the output $C$ is a $m\times l$ matrix. The implementation of a distributed matrix-matrix multiplication lies on two main concepts:
 - matrices are saved by rows in contiguous memory;
 - each of the three matrices is distributed among the processes.
 
-For this assignment, we will consider the matrices to be distributed by rows among the processes, hence each process will have a submatrix, which we will call `myA`, `myB` and `myC`, with a fixed number of rows of each matrix (equal to the number of rows of the entire matrix divided by the number of processes). Since in general the number of rows of the matrices is not divisible by the number of processes, some processes will actually have one more row than the others:
+For this assignment, we will consider the matrices to be distributed *by rows* among the processes, hence each process will have a submatrix, which we will call `myA`, `myB` and `myC`, with a fixed number of rows of each matrix (equal to the number of rows of the entire matrix divided by the number of processes). Since in general the number of rows of the matrices is not divisible by the number of processes, some processes will actually have one more row than the others:
 
 ![worksharing](imgs/workshare.png)
 
@@ -58,7 +58,7 @@ The code that executes the iterations is:
 
 Where the `matMul` part branches according to the version of the algorithm we are implementing. Let's have a look at some details about the three versions.
 
-## Basic version
+## CPU baseline: naive algorithm
 
 The basic version of the algorithm is the naive implementation of the matrix-matrix multiplication, using the triple loop:
 
@@ -66,7 +66,7 @@ The basic version of the algorithm is the naive implementation of the matrix-mat
 
 `startPoint` is a shift that allows to directly position the computed values in `myC`, without using the support matrix `myCBlock`. Except for this, the code is straightforward: each process computes its `myCBlock`, with size `myNRows x nColumnsBblock`, by iterating over the rows of `myA` and the columns of `columnB`.
 
-## Improved CPU version
+## CPU improvement: BLAS 
 
 The improved CPU version uses the BLAS library to compute the matrix-matrix multiplication. The BLAS library is a set of routines that provide standard building blocks for performing basic vector and matrix operations. The routine we are interested in is `dgemm`, which computes the matrix-matrix product of two matrices with double-precision elements. The code here is just a little bit more complex than the basic version: product and `myCBlock` placement are split in two different steps:
 
@@ -84,7 +84,7 @@ GPU execution, which is done with CUDA and CUBLAS library, requires one more ste
 
 We first copy `columnB` to the GPU, then we compute the product and place it in `myCBlock` as in the previous case. Some interesting points to notice are:
 - all the matrices have already been preallocated on the GPU at the beginning of the execution, hence the only thing we are missing is the copy of `columnB`, which is built on the CPU at each iteration and then moved to the GPU;
-- `cublasDgemm`, the CUBLAS routine that performs the product, takes as input the matrices in column-major format by default, and we don't want to transpose them to avoid losing performances, hence we perform the product in the inverse order, exploiting the fact that $C=A\times B$ is equivalent to $C^T=B^T\times A^T$: in this way, the product output, which is saved in `myCBlock_dev`, is already in the correct format to be placed in `myC`, but you must be careful to correctly set the leading dimensions of the matrices in the `cublasDgemm` call;
+- `cublasDgemm`, the CUBLAS routine that performs the product, takes as input the matrices in column-major format by default, and we don't want to transpose them to avoid losing performances, hence we perform the product in the inverse order, exploiting the fact that $C=A\times B$ is equivalent to $C^T=B^T\times A^T$: in this way the product output, which is saved in `myCBlock_dev`, is already in the correct format to be placed in `C_dev` (the GPU memory location of `myC`), but you must be careful to correctly set the leading dimensions of the matrices in the `cublasDgemm` call;
 - to access `myCBlock_dev` and to modify `C_dev` we need to use a kernel function, since we are working on the GPU. Hence, we are working exclusively on the GPU for the product and the placement of `myCBlock_dev` in `C_dev`: only at the end of the program `C_dev` is copied back to the CPU.
 
 ## Results
@@ -93,7 +93,7 @@ In this section we will analyze the results of the three versions of the algorit
 
 To easily identify the different parts of the code and plot them I have used some terms, here a brief explanation of them is given, in order of appearance in the code:
 - `initCuda`: initialization of Cuda, with `cudaGetDeviceCount` and `cudaSetDevice`;
-- `init`: initialization of the three matrices on CPU;
+- `init`: initialization of the three matrices (done on CPU);
 - `initComm`: initialization of `myBblock`, `recvcounts` and `displs` for the communication;
 - `resAlloc`: everything related to the allocation of the matrices, both on CPU and on GPU (hence `malloc`, `cudaMalloc`, `cublasCreate` and `cudaMemcpy`);
 - `gather`: gathering of `myBblock` into `columnB` from all the processes;
@@ -104,11 +104,13 @@ To easily identify the different parts of the code and plot them I have used som
 
 ![naiveall](imgs/results/naiveAll.png)
 
-As we can see, the entire execution time is occupied by the computation of the product. Let's try to remove it to see how the other parts behave:
+As we can see, almost all the execution time is occupied by the computation of the product. Let's try to remove it to see how the other parts behave:
 
 ![naivenomult](imgs/results/naiveNomult.png)
 
-Excluding `dGemm` time, `init` and `gather` seem to be the most time consuming parts of the code (still nearly 2 orders of magnitude far from product part though). Also, `gather` reaches a peak with 16 processes, possibly due to the computational resources' physical position (in different trials, with different allocated nodes, gather time varied a lot). In order to understand how the code scales with the size, let's also plot the results for 10000x10000 matrices:
+Excluding `dGemm` time, `init` and `gather` seem to be the most time consuming parts of the code (still nearly 2 orders of magnitude far from product part though). `init` is scaling a bit, but the matrix is way too small to expect something better.
+
+In order to understand how the code scales with the size, let's also have a look at the results for 10000x10000 matrices: since the algorithm complexity is $O(N^3)$, we expect `dGemm` part to grow about 8 times:
 
 ![naive10000](imgs/results/naive10000.png)
 
@@ -116,7 +118,7 @@ Without the product part:
 
 ![naive10000nomult](imgs/results/naive10000nomult.png)
 
-`init` seems to scale, as expected, while `gather` time is fluctuating.
+`init` seems now to scale pretty well, as expected.
 
 ### CPU - BLAS
 
@@ -124,7 +126,7 @@ Without the product part:
 
 Also in this case, `dGemm` is the most time consuming part of the code, as we would expect. However, `dGemm` time is now ~20 times smaller than in the naive case, hence `gather` and `init` are quite significant now. 
 
-`gather` and `initComm` time have the same behavior as in the naive case. Notice that:
+Notice that:
 - `place` time was not present in the naive case, since the product was directly placed in `myC`, while in this case we first compute the product and then place it in `myC`. However, the time spent in `place` is negligible with respect to the time spent in `dGemm`, `init` and `gather`;
 - for both naive and CPU version, `resAlloc` time is practically zero, since the matrices are allocated only in the CPU. We'll see that this won't be the case in the GPU version.
 
@@ -138,7 +140,7 @@ Results are a bit better than before but `gather` is still quite impactant. Let'
 
 ![cpu45000](imgs/results/cpu45000.png)
 
-As we can see, the time spent in `gather` rapidly becomes the real bottleneck of the code. (TO UPDATE)
+As we can see, with bigger matrices we are able to obtain a pretty decent scalability, although the `gather` part becomes quite impactant at large number of processes, thus becoming the real bottleneck as we would expect.
 
 ### GPU
 
@@ -186,8 +188,8 @@ Let's compare the results obtained by the three algorithms:
 A Makefile is provided to easily compile and run the code. The available targets are:
 
 - `make naive`: produce an executable running with the naive algorithm (triple loop);
-- `make cpu`: produce an executable running with the BLAS library; 
-- `make gpu`: produce an executable running with CUDA and CUBLAS library;
+- `make cpu`: produce an executable running with the BLAS library (requires BLAS, on Leonardo you can load it with `module load openblas/0.3.24--nvhpc--23.11`); 
+- `make gpu`: produce an executable running with CUDA and CUBLAS library (requires CUDA and CUBLAS, in Leonardo they are included in the `nvhpc` module which also provides a CUDA-Aware MPI library);
 - `make clean`: remove all the executables and the object files.
 
 After compilation, the executables can be run with `mpirun -np <np> ./main <size>`.

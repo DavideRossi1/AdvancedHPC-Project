@@ -32,24 +32,17 @@ $$
 
 whose solution can be iteratively found through Jacobi's method: if we discretize the domain in a grid of points, the value of each point can be updated as the average of its neighbors. The algorithm is as follows:
 
-
-- initialize the matrices as desired: the first matrix is filled with zeros, the second one with $0.5$, both with the same boundary conditions: $0$ in the upper and right boundaries, $100$ in the lower left corner, with increasing values starting from that corner and getting farther from it:
+- initialize two matrices as in the following picture: the first matrix is filled with zeros, the second one with $0.5$, both with the same boundary conditions: $0$ in the upper and right boundaries, $100$ in the lower left corner, with increasing values starting from that corner and getting farther from it along the left and lower boundaries:
   
   ![init](imgs/init.png)
-
-  This is done using 4 loops:
-    - one to initialize both matrices with zeros;
-    - one to set $0.5$ for the internal points of the second matrix;
-    - one to set the first column;
-    - one to set the last row;
   
-- Iterate over the grid points, updating each point as the average of its neighbors:
+- Iterate over the grid points, updating each internal point of the first matrix as the average of its neighbors in the second matrix:
 
 $$
 V_{i,j}^{k+1} = \frac{1}{4} \left( V_{i-1,j}^k + V_{i+1,j}^k + V_{i,j-1}^k + V_{i,j+1}^k \right)
 $$
 
-- Repeat step 2 until a desired convergence criterion is met.
+- Swap the pointers of the two matrices and repeat points 2 and 3 until a desired convergence criterion is met.
 
 The following gif shows the evolution of the matrix during 100 iterations:
 
@@ -59,31 +52,29 @@ The following gif shows the evolution of the matrix during 100 iterations:
 
 Since at each iteration each point is updated independently on the others (we only need their old value, which is constant during the update), this algorithm clearly opens the door to parallelization: each process can be assigned a subgrid of the domain, and the communication between processes is only needed at the boundaries of the subgrids.
 
-In this assignment, we will consider the domain to be distributed by rows among multiple MPI processes, hence each process will have a subgrid with a fixed number of rows of the entire grid (equal to the number of rows of the entire grid divided by the number of processes) and two more rows, needed to perform the update, open for the other processes to access and update them through the use of two `MPI_Win` objects. Since in general the number of rows of the grid is not divisible by the number of processes, some processes will actually have one more row than the others.
+In this assignment, we will consider the domain to be distributed by rows among multiple MPI processes, hence each process will have a subgrid with a fixed number of rows of the entire grid (equal to the number of rows of the entire grid divided by the number of processes), and **two more rows**, needed to perform the update, open for the other processes to access and update them through the use of two `MPI_Win` objects. Since in general the number of rows of the grid is not divisible by the number of processes, some processes will actually have one more row than the others.
 
 For example, if `dim`$=9$ and `NPEs`$=3$, we have the situation showed in the following picture:
 
 ![sendrecgraph](imgs/sendrecgraph.png)
 
-each process will have a subgrid with 3 rows, and 2 ghost rows, the one above and the one below, to perform the update. Each process will then load its second and semilast row inside the upper and lower process window respectively, and will have its first and last row, contained in two windows, updated by the upper and lower process respectively. First (last) process will only load its semilast (second) row and have its last (first) row updated, since its first (last) row is a fixed boundary condition and does not need to be updated.
+The idea to compute the solution is the following: each process has two submatrices with `myWorkSize` rows, and 2 more rows to perform the update. Each process only initializes and updates its submatrices, and then puts the updated rows inside the neighbor processes' windows. More precisely, each process first initializes its own submatrices and its extra rows, and then continuously:
 
-The idea to compute the solution is the following: 
-
-each process has two matrices, one for the current iteration and one for the next iteration, and it first initalizes them as described above (each process initializes only its own subgrid and its extra rows, following the rules described above), and then continuously updates the values of the new matrix using the old matrix and swaps their pointers:
-
-- update the values of the internal points of its subgrid (hence excluding its first and last row, which are updated later, and the first and last column, which are boundary conditions):
+- updates the internal points of one of the two submatrices using the values from the other one:
   
   ![update](imgs/update.png)
 
-- update the values of the first and last row of its subgrid, using its extra rows:
-
+- updates the first and last row of the submatrix, using the extra rows:
+  
   ![updatebound](imgs/updatebound.png)
 
-- put second and semilast row, and get first and last row, inside/from the neighboring processes windows, to update the boundary points as described above:
+- puts the first row of the submatrix inside the upper process' second window and the last row of the submatrix inside the lower process' first one. First and last process only put a single row, since the other one is a fixed boundary condition:
   
   ![put](imgs/put.png)
 
-- swap the pointers to the matrices, so that the new matrix becomes the old one and vice versa.
+- swaps the pointers to the matrices, so that the new matrix becomes the old one and vice versa;
+
+until a desired convergence criterion is met.
 
 ## Final results
 
@@ -93,7 +84,7 @@ To easily identify the different parts of the code and plot them I have used som
 - `initPar`: parameters and windows initialization; 
 - `init`: initialization of the matrix;
 - `update`: total time spent on updating the matrix;
-- `comm` total time spent on updating the ghost rows;
+- `comm` total time spent on updating the extra rows;
 - `save`: save the matrix on file using MPI-IO.
 
 ### Results
@@ -126,7 +117,7 @@ As we can see, using MPI-IO we are able to save some time writing on file in par
 
 A Makefile is provided to easily compile and run the code. The available targets are:
 
-- `make`,  and : produce an executable, print the elapsed time; 
+- `make`: produce an executable that prints the elapsed times; 
 - `make save`: produce an executable that also saves the final matrix in a file `solution.dat`;
 - `make gif`: produce an executable that also saves the evolution of the matrix in multiple `.dat` files;
 - `make plot`: produce a plot using Gnuplot: if the code has been compiled with the `save` target, it will plot the final matrix in a file `solution.png`, while with the `gif` option it will plot a gif with the evolution of the matrix in a file `solution.gif`, both in the `output` folder;
@@ -134,7 +125,7 @@ A Makefile is provided to easily compile and run the code. The available targets
 
 After compilation, the executables can be run with `mpirun -np <np> ./main <size> <nIter>`.
 
-The Makefile also provides a shortcut to directly compile and run the code: `make run NP=<np> SZ=<size> IT=<nIter>`, equivalent to `make clean && make save && mpirun -np NP ./jacobi.x SZ IT`.
+The Makefile also provides a shortcut to directly compile and run the code and save the output: `make run NP=<np> SZ=<size> IT=<nIter>`, equivalent to `make clean && make save && mpirun -np NP ./jacobi.x SZ IT && make plot`.
 
 ## Check correctness
 

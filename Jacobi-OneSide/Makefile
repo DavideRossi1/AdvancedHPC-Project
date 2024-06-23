@@ -31,10 +31,9 @@ save: main
 gif: FLAGS+=-DSAVEGIF
 gif: main
 
-run:
-	@$(MAKE) clean $(PRINTDIR)
-	@$(MAKE) save $(PRINTDIR)
+run: clean save
 	@mpirun -np $(NP) ./main $(SZ) $(IT)
+	@$(MAKE) plot 
 
 compare:
 	@$(MAKE) run $(PRINTDIR) NP=$(NP) SZ=$(SZ) IT=$(IT) >> /dev/null

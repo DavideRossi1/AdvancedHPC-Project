@@ -51,10 +51,10 @@ cpurun: run
 gpurun: FUNC = gpusave
 gpurun: run
 
-run:
-	@$(MAKE) clean $(PRINTDIR)
+run: clean 
 	@$(MAKE) $(FUNC) $(PRINTDIR)
 	@mpirun -np $(NP) ./jacobi.x $(SZ) $(IT)
+	@$(MAKE) plot
 
 comparecpu: F=cpurun
 comparecpu: compare
