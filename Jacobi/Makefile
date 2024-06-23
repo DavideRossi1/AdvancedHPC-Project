@@ -1,25 +1,25 @@
-CC=mpicc
-INCLUDE=include
-OBJDIR=obj
-OUTPUTDIR=output
-SRC=src
-PRINTDIR=--no-print-directory
+CC = mpicc
+INCLUDE = include
+OBJDIR = obj
+OUTPUTDIR = output
+SRC = src
+MAIN = jacobi.c
+OBJECTS = $(patsubst $(SRC)/%.c, $(OBJDIR)/%.o, $(wildcard $(SRC)/*.c))
 
-FLAGS=-O3 -I$(INCLUDE) -Wall -Wextra -march=native #-Wno-unknown-pragmas
-OPENMP=-fopenmp
-OPENACC=-acc #-Minfo=all
-
-OBJECTS=$(patsubst $(SRC)/%.c, $(OBJDIR)/%.o, $(wildcard $(SRC)/*.c))
+PRINTDIR = --no-print-directory
+FLAGS = -O3 -I$(INCLUDE) -Wall -Wextra -march=native #-Wno-unknown-pragmas
+OPENMP = -fopenmp
+OPENACC = -acc #-Minfo=all
 
 #FLAGS+=-DDEBUG
 
-cpu: FLAGS+=$(OPENMP)
+cpu: FLAGS += $(OPENMP)
 cpu: jacobi.x
 
-gpu: FLAGS+=$(OPENACC)
+gpu: FLAGS += $(OPENACC)
 gpu: jacobi.x
 
-jacobi.x: $(OBJECTS) jacobi.c
+jacobi.x: $(OBJECTS) $(MAIN)
 	@mkdir -p $(OUTPUTDIR)
 	@$(CC) $(FLAGS) $^ -o $@
 $(OBJDIR)/%.o: $(SRC)/%.c
@@ -28,35 +28,27 @@ $(OBJDIR)/%.o: $(SRC)/%.c
 
 clean:
 	@rm -rf jacobi.x $(OBJDIR) $(OUTPUTDIR)
+	@$(MAKE) clean -C original_code $(PRINTDIR)
 
 plot:
 	@gnuplot -e "NITER=$(words $(wildcard output/*.dat))" -p plot.plt 
-	
-push:
-	@$(MAKE) clean $(PRINTDIR)
-	@git add .
-	@git commit -m "$(MS)"
-	@git push
-pull:
-	@git reset --hard
-	@git pull
 
-cpusave: FLAGS+=-DSAVEPLOT
+cpusave: FLAGS += -DSAVEPLOT
 cpusave: cpu
 
-gpusave: FLAGS+=-DSAVEPLOT
+gpusave: FLAGS += -DSAVEPLOT
 gpusave: gpu
 
-cpugif: FLAGS+=-DSAVEGIF
+cpugif: FLAGS += -DSAVEGIF
 cpugif: cpu
 
-gpugif: FLAGS+=-DSAVEGIF
+gpugif: FLAGS += -DSAVEGIF
 gpugif: gpu
 
-cpurun: FUNC=cpusave 
+cpurun: FUNC = cpusave 
 cpurun: run
 
-gpurun: FUNC=gpusave
+gpurun: FUNC = gpusave
 gpurun: run
 
 run:
@@ -75,5 +67,4 @@ compare:
 	@$(MAKE) run -C original_code $(PRINTDIR) dim=$(SZ) it=$(IT) r=1 c=1 >> /dev/null
 	@diff ./$(OUTPUTDIR)/solution0.dat ./original_code/solution.dat || true
 
-.PHONY: clean plot push pull run cpu gpu
-
+.PHONY: clean plot run cpu gpu

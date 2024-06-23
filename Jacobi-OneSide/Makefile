@@ -1,16 +1,17 @@
-CC=mpicc
-INCLUDE=include
-OBJDIR=obj
-OUTPUTDIR=output
-SRC=src
-PRINTDIR=--no-print-directory
+CC = mpicc
+INCLUDE = include
+OBJDIR = obj
+OUTPUTDIR = output
+SRC = src
+MAIN = main.c
+OBJECTS = $(patsubst $(SRC)/%.c, $(OBJDIR)/%.o, $(wildcard $(SRC)/*.c))
 
-FLAGS=-O3 -I$(INCLUDE) -Wall -Wextra -march=native -fopenmp #-Wno-unknown-pragmas
-OBJECTS=$(patsubst $(SRC)/%.c, $(OBJDIR)/%.o, $(wildcard $(SRC)/*.c))
+PRINTDIR = --no-print-directory
+FLAGS = -O3 -I$(INCLUDE) -Wall -Wextra -march=native -fopenmp #-Wno-unknown-pragmas
 
 #FLAGS+=-DDEBUG
 
-main: $(OBJECTS) main.c
+main: $(OBJECTS) $(MAIN)
 	@mkdir -p $(OUTPUTDIR)
 	@$(CC) $(FLAGS) $^ -o $@
 $(OBJDIR)/%.o: $(SRC)/%.c
@@ -19,18 +20,10 @@ $(OBJDIR)/%.o: $(SRC)/%.c
 
 clean:
 	@rm -rf main $(OBJDIR) $(OUTPUTDIR)
+	@$(MAKE) clean -C original_code $(PRINTDIR)
 
 plot:
 	@gnuplot -e "NITER=$(words $(wildcard output/*.dat))" -p plot.plt 
-	
-push:
-	@$(MAKE) clean $(PRINTDIR)
-	@git add .
-	@git commit -m "$(MS)"
-	@git push
-pull:
-	@git reset --hard
-	@git pull
 
 save: FLAGS+=-DSAVEPLOT
 save: main
@@ -48,5 +41,5 @@ compare:
 	@$(MAKE) run -C original_code $(PRINTDIR) dim=$(SZ) it=$(IT) r=1 c=1 >> /dev/null
 	@diff ./$(OUTPUTDIR)/solution0.dat ./original_code/solution.dat || true
 
-.PHONY: clean plot push pull run cpu gpu
+.PHONY: clean plot run cpu gpu
 

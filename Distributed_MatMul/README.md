@@ -138,7 +138,7 @@ Results are a bit better than before but `gather` is still quite impactant. Let'
 
 ![cpu45000](imgs/results/cpu45000.png)
 
-As we can see, the time spent in `gather` rapidly becomes the real bottleneck of the code.
+As we can see, the time spent in `gather` rapidly becomes the real bottleneck of the code. (TO UPDATE)
 
 ### GPU
 

@@ -52,7 +52,7 @@ inline void start(struct Timer* t){
  * @brief End the timer and return the time elapsed from the start
  * 
  * @param t the Timer struct to end
- * @return double the time elapsed from the start
+ * @return double: the time elapsed from the start
  */
 inline double end(struct Timer* t){
     MPI_Barrier(MPI_COMM_WORLD);

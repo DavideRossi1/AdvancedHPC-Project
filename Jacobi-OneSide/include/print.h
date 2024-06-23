@@ -17,6 +17,8 @@
 * @param nCols number of columns of the matrix
 * @param myRank MPI rank of the executing process
 * @param NPEs total number of MPI processes
+* @param firstRow the first row of the matrix
+* @param lastRowWin the window containing the last row of the matrix
 */
 void printMatrixThrSafe(double *matrix, uint nRows, uint nCols, uint myRank, uint NPEs, double* firstRow, MPI_Win lastRowWin);
 
@@ -40,6 +42,8 @@ void printMatrixThrSafe(double *matrix, uint nRows, uint nCols, uint myRank, uin
  * @param nCols number of columns of the matrix
  * @param myRank MPI rank of the executing process
  * @param NPEs total number of MPI processes
+ * @param firstRow the first row of the matrix
+ * @param lastRowWin the window containing the last row of the matrix
  */
 void printMatrixDistributed(double *matrix, uint nRows, uint nCols, uint myRank, uint NPEs, double* firstRow, MPI_Win lastRowWin);
 
@@ -58,10 +62,11 @@ void printMatrix(double *matrix, uint nRows, uint nCols);
  * @brief Save the matrix in a file to be plotted with gnuplot
  * 
  * @param M the matrix to save
- * @param dim the dimension of the matrix
- * @param firstRow the first row to save (all processes except the first one skip the first row)
- * @param lastRow the last row to save (all processes except the last one skip the last row)
+ * @param nRows number of rows of the matrix
+ * @param nCols number of columns of the matrix
  * @param shift used to compute the correct position of the file where the current process has to write
  * @param it the iteration number, used to name the output file
+ * @param firstRow the first row to save (null for all processes except the first one)
+ * @param lastRow the last row to save (null for all processes except the last one)
  */
 void save_gnuplot( double *M, size_t nRows, size_t nCols, uint shift, size_t it, double* firstRow, double* lastRow);

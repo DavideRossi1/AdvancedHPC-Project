@@ -1,48 +1,44 @@
-CC=mpicc
-INCLUDE=include
-OBJDIR=obj
-SRC=src
-PRINTDIR=--no-print-directory
+CC = mpicc
+INCLUDE = include
+OBJDIR = obj
+SRC = src
+MAIN = main.c
+OBJECTS = $(OBJDIR)/main.o $(patsubst $(SRC)/%.c, $(OBJDIR)/%.o, $(wildcard $(SRC)/*.c))
 
-CFLAGS=-I$(INCLUDE) $(OPENMP) # compilation flags
-MAINFLAGS=-I$(INCLUDE) # flags for main file
-LINKFLAGS=$(CFLAGS) # flags for linking
+PRINTDIR = --no-print-directory
+OPT = -Wall -Wextra -march=native -O3
+GPUOPT = -arch=sm_80 -O3
+OPENMP = -fopenmp
+CBLAS = -DCBLAS -lopenblas -lblas
+CUDA = -DCUDA
 
-OPT=-Wall -Wextra -march=native -O3
-OPENMP=-fopenmp
-CBLAS=-DCBLAS -lopenblas
-CUDA=-DCUDA
-COMPCAPABILITY=-arch=sm_80
-MAIN=main.c
-LDFLAGS=-lcublas -lcudart -lmpi -L/leonardo/prod/opt/libraries/openmpi/4.1.6/nvhpc--23.11/lib
-
-OBJECTS=$(OBJDIR)/main.o $(patsubst $(SRC)/%.c, $(OBJDIR)/%.o, $(wildcard $(SRC)/*.c))
+CFLAGS = -I$(INCLUDE) $(OPENMP) $(OPT)# compilation flags
+MAINFLAGS = -I$(INCLUDE) # flags for main file
+LINKFLAGS = $(OPENMP) $(OPT) # flags for linking
+GPULINKFLAGS = -lcublas -lcudart -lmpi -lnvomp -L/leonardo/prod/opt/libraries/openmpi/4.1.6/nvhpc--23.11/lib -O3
 
 #CFLAGS+=-DDEBUG
 
-naive: CFLAGS+=$(OPT)
+naive: MAINFLAGS += $(OPT)
 naive: main
 
-cpu: CFLAGS+=$(CBLAS) $(OPT)
-cpu: MAINFLAGS+=$(CBLAS)
+cpu: MAINFLAGS += $(CBLAS) $(OPT)
+cpu: LINKFLAGS += $(CBLAS)
 cpu: main
 
-gpu: CFLAGS+=$(CUDA) $(OPENMP)
-gpu: MAINFLAGS+=$(COMPCAPABILITY) $(CUDA)
-gpu: LINKFLAGS=$(LDFLAGS) -lnvomp
-gpu: CC=nvcc
-gpu: MAIN=main.cu
-gpu: prepare_main # for GPU computation, rename main.c to main.cu
-gpu: main
-gpu: cleanup_main # rename main.cu back to main.c
+gpu: MAINFLAGS += $(CUDA) $(GPUOPT)
+gpu: LINKFLAGS = $(GPULINKFLAGS)
+gpu: CC = nvcc
+gpu: MAIN = main.cu
+gpu: prepare_main  main  cleanup_main # for GPU computation, rename main.c to main.cu before compilation, and rename it back after compilation
 
 main: $(OBJECTS)
-	@$(CC) $(LINKFLAGS) $^ -o $@
+	$(CC) $(LINKFLAGS) $^ -o $@
 $(OBJDIR)/main.o:
 	@mkdir -p $(OBJDIR)
-	@$(CC) $(MAINFLAGS) -c $(MAIN) -o $@
+	$(CC) $(MAINFLAGS) -c $(MAIN) -o $@
 $(OBJDIR)/%.o: $(SRC)/%.c
-	@mpicc $(CFLAGS) -c $< -o $@
+	mpicc $(CFLAGS) -c $< -o $@
 
 prepare_main:
 	@mv main.c main.cu
@@ -51,15 +47,6 @@ cleanup_main:
 
 clean:
 	@rm -rf main $(OBJDIR)
-
-push:
-	@$(MAKE) clean $(PRINTDIR)
-	@git add .
-	@git commit -m "$(MS)"
-	@git push
-pull:
-	@git reset --hard
-	@git pull
 
 naiverun: FUNC=naive
 naiverun: run
@@ -75,4 +62,4 @@ run:
 	@$(MAKE) $(FUNC) $(PRINTDIR)
 	@mpirun -np $(NP) ./main $(SZ)
 
-.PHONY: clean push pull run cpu gpu
+.PHONY: clean run cpu gpu
