@@ -4,8 +4,7 @@
 - [Introduction](#introduction)
 - [Jacobi's algorithm](#jacobis-algorithm)
 - [Distribute the domain: MPI](#distribute-the-domain-mpi)
-- [Final results](#final-results)
-  - [Results](#results)
+- [Results](#results)
   - [Save time](#save-time)
 - [How to run](#how-to-run)
 - [Check correctness](#check-correctness)
@@ -24,7 +23,7 @@ $$
 \nabla^2 V = 0
 $$
 
-where $V$ is the unknown function of the spatial coordinates $x$, $y$, and $z$. The Laplace equation is named after Pierre-Simon Laplace, who first studied its properties. Solutions of Laplace's equation are called harmonic functions and are important in many areas of physics, including the study of electromagnetic fields, heat conduction and fluid dynamics. In two dimensions, Laplace's equation is given by
+where $V$ is the unknown function of the spatial coordinates $x$, $y$, and $z$, and $\nabla^2$ is the Laplace operator. The Laplace equation is named after Pierre-Simon Laplace, who first studied its properties. Solutions of Laplace's equation are called harmonic functions and are important in many areas of physics, including the study of electromagnetic fields, heat conduction and fluid dynamics. In two dimensions, Laplace's equation is given by
 
 $$
 \frac{\partial^2 V}{\partial x^2} + \frac{\partial^2 V}{\partial y^2} = 0
@@ -52,23 +51,23 @@ The following gif shows the evolution of the matrix during 100 iterations:
 
 Since at each iteration each point is updated independently on the others (we only need their old value, which is constant during the update), this algorithm clearly opens the door to parallelization: each process can be assigned a subgrid of the domain, and the communication between processes is only needed at the boundaries of the subgrids.
 
-In this assignment, we will consider the domain to be distributed by rows among multiple MPI processes, hence each process will have a subgrid with a fixed number of rows of the entire grid (equal to the number of rows of the entire grid divided by the number of processes), and **two more rows**, needed to perform the update, open for the other processes to access and update them through the use of two `MPI_Win` objects. Since in general the number of rows of the grid is not divisible by the number of processes, some processes will actually have one more row than the others.
+In this assignment, we will consider the domain to be distributed by rows among multiple MPI processes, hence each process will have a subgrid with a fixed number of rows of the entire grid (equal to the total number of rows divided by the number of processes), and **two more rows**, needed to perform the update, open for the other processes to access and update them through the use of two `MPI_Win` objects. Since in general the number of rows of the grid is not divisible by the number of processes, some processes will actually have one more row than the others.
 
 For example, if `dim`$=9$ and `NPEs`$=3$, we have the situation showed in the following picture:
 
 ![sendrecgraph](imgs/sendrecgraph.png)
 
-The idea to compute the solution is the following: each process has two submatrices with `myWorkSize` rows, and 2 more rows to perform the update. Each process only initializes and updates its submatrices, and then puts the updated rows inside the neighbor processes' windows. More precisely, each process first initializes its own submatrices and its extra rows, and then continuously:
+The idea to compute the solution is the following: each process has two submatrices with `myWorkSize = 9/3 + 0 = 3` rows, and 2 more rows to perform the update. Each process only initializes and updates one submatrix and then puts its first and last row inside the neighbor processes' windows. More precisely, each process first initializes its own submatrices and its extra rows, and then continuously:
 
-- updates the internal points of one of the two submatrices using the values from the other one:
+- updates the values of the internal points of one submatrix (hence excluding its first and last row and the first and last column) using the values from the other one:
   
   ![update](imgs/update.png)
 
-- updates the first and last row of the submatrix, using the extra rows:
+- updates the first and last row of the same submatrix, using the other one and the extra rows:
   
   ![updatebound](imgs/updatebound.png)
 
-- puts the first row of the submatrix inside the upper process' second window and the last row of the submatrix inside the lower process' first one. First and last process only put a single row, since the other one is a fixed boundary condition:
+- puts the first row of the submatrix inside the upper process' second window and the last row of the submatrix inside the lower process' first one (first and last process only put a single row, since the other one is a fixed boundary condition):
   
   ![put](imgs/put.png)
 
@@ -76,7 +75,7 @@ The idea to compute the solution is the following: each process has two submatri
 
 until a desired convergence criterion is met.
 
-## Final results
+## Results
 
 In this section we will analyze the performances obtained by the algorithm. The code has been run on the Leonardo cluster, with up to 16 MPI tasks allocated one per node. The execution time has been measured with the `MPI_Wtime` function. The tests have been done with a matrix of size 1200x1200 and 12000x12000, with 10 evolution iterations, and 40000x40000, with 1000 iterations, to better study the scalability. The maximum time among all the MPI processes has been plotted. However, I have also collected data regarding the average time and they have showed the same behavior, meaning the workload is correctly distributed among the processes, for this reason they have not been plotted.
 
@@ -86,8 +85,6 @@ To easily identify the different parts of the code and plot them I have used som
 - `update`: total time spent on updating the matrix;
 - `comm` total time spent on updating the extra rows;
 - `save`: save the matrix on file using MPI-IO.
-
-### Results
 
 ![cpu1200](imgs/results/120010.png)
 

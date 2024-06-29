@@ -117,9 +117,11 @@ int main(int argc, char** argv)
             start(&t);
             cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, nColumnsBblock, myNRows,
                     N, &alpha, columnB_dev, nColumnsBblock, A_dev, N, &beta, myCBlock_dev, nColumnsBblock);
+            cudaDeviceSynchronize();
             t.dgemm += end(&t);
             start(&t);
             placeBlockInMatrixKernel<<<numBlocks, threadsPerBlock>>>(myCBlock_dev, C_dev, myNRows, nColumnsBblock, N, startPoint);
+            cudaDeviceSynchronize();
             t.place += end(&t);
         #elif defined(CBLAS)
             start(&t);

@@ -15,4 +15,9 @@ pull:
 	@git reset --hard
 	@git pull
 
-.PHONY: clean push pull
+# small utility to check priority queue on Leonardo
+prio:
+	@echo "          JOBID PARTITION     USER   PRIORITY       SITE        AGE      ASSOC  FAIRSHARE    JOBSIZE  PARTITION        QOS        NICE                 TRES" > queue.txt
+	@sprio -S -y -l | grep boost >> queue.txt
+
+.PHONY: clean push pull prio

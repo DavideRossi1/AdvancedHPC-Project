@@ -17,6 +17,7 @@ MAINFLAGS = -I$(INCLUDE) # flags for main file
 LINKFLAGS = $(OPENMP) $(OPT) # flags for linking
 GPULINKFLAGS = -lcublas -lcudart -lmpi -lnvomp -L/leonardo/prod/opt/libraries/openmpi/4.1.6/nvhpc--23.11/lib -O3
 
+#MAINFLAGS+=-DDEBUG
 #CFLAGS+=-DDEBUG
 
 naive: MAINFLAGS += $(OPT)

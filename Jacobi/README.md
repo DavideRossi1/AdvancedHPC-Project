@@ -27,7 +27,7 @@ $$
 \nabla^2 V = 0
 $$
 
-where $V$ is the unknown function of the spatial coordinates $x$, $y$, and $z$. The Laplace equation is named after Pierre-Simon Laplace, who first studied its properties. Solutions of Laplace's equation are called harmonic functions and are important in many areas of physics, including the study of electromagnetic fields, heat conduction and fluid dynamics. In two dimensions, Laplace's equation is given by
+where $V$ is the unknown function of the spatial coordinates $x$, $y$, and $z$, and $\nabla^2$ is the Laplace operator. The Laplace equation is named after Pierre-Simon Laplace, who first studied its properties. Solutions of Laplace's equation are called harmonic functions and are important in many areas of physics, including the study of electromagnetic fields, heat conduction and fluid dynamics. In two dimensions, Laplace's equation is given by
 
 $$
 \frac{\partial^2 V}{\partial x^2} + \frac{\partial^2 V}{\partial y^2} = 0
@@ -46,7 +46,7 @@ $$
 V_{i,j}^{k+1} = \frac{1}{4} \left( V_{i-1,j}^k + V_{i+1,j}^k + V_{i,j-1}^k + V_{i,j+1}^k \right)
 $$
 
-- Swap the pointers of the two matrices and repeat until a desired convergence criterion is met.
+- Swap the pointers of the two matrices and repeat points 2 and 3 until a desired convergence criterion is met.
 
 The following gif shows the evolution of the matrix during 100 iterations:
 
@@ -56,7 +56,7 @@ The following gif shows the evolution of the matrix during 100 iterations:
 
 Since at each iteration each point is updated independently on the others (we only need their old value, which is constant during the update), this algorithm clearly opens the door to parallelization: each process can be assigned a subgrid of the domain, and the communication between processes is only needed at the boundaries of the subgrids.
 
-In this assignment, we will consider the domain to be distributed by rows among multiple MPI processes, hence each process will have a subgrid with a fixed number of rows of the entire grid (equal to the number of rows of the entire grid divided by the number of processes, plus two more rows, one above and one below, that will be needed to perform the update). Since in general the number of rows of the grid is not divisible by the number of processes, some processes will actually have one more row than the others:
+In this assignment, we will consider the domain to be distributed by rows among multiple MPI processes, hence each process will have a subgrid with a fixed number of rows of the entire grid (equal to the total number of rows divided by the number of processes, plus two more rows, one above and one below, that will be needed to perform the update). Since in general the number of rows of the grid is not divisible by the number of processes, some processes will actually have one more row than the others:
 
 ![worksharing](imgs/worksharing.png)
 
@@ -64,13 +64,13 @@ For example, if `dim`$=9$ and `NPEs`$=3$, we have the situation showed in the fo
 
 ![sendrecgraph](imgs/sendrecgraph.png)
 
-The idea to compute the solution is the following: each process will have two submatrices with `myWorkSize` rows plus 2 ghost rows more, one above and one below, to perform the update (which only happens for the internal points: neighbor processes will deal with boundaries update). Each process only initializes and updates the internal rows of the submatrices, and then exchanges the boundary rows with the neighbor processes. More precisely, each process first initializes its own submatrices and then continuously:
+The idea to compute the solution is the following: each process will have two submatrices with `myWorkSize = 9/3 + 0 + 2 = 5` rows, also considering the 2 ghost rows, one above and one below, to perform the update. Each process only initializes and updates the internal rows of one submatrix, and then exchanges the boundary rows with the neighbor processes. More precisely, each process first initializes its own submatrices and then continuously:
 
 - updates the values of the internal points (hence excluding its first and last row and the first and last column) of one submatrix using the values from the other one:
   
   ![update](imgs/update.png)
 
-- updates the boundaries: it sends its second row to the upper process and its semilast row to the lower one, and receives its last row from the lower process and its first row from the upper one. First (last) process will only send and receive one row, since its first (last) row is a fixed boundary condition:
+- updates the boundaries: it sends its second row to the upper process and its semilast row to the lower one, and receives its first row from the upper process and its last row from the lower one (first and last process only put a single row, since the other one is a fixed boundary condition):
   
   ![sendrec](imgs/sendrec.png)
 
@@ -189,4 +189,4 @@ Binary files output/solution0.dat and original_code/solution.dat differ
 ```
 Note: to directly compare the two files without having to worry about precision issues, the original code `save_gnuplot` function has been modified to save binary files; this is the only change that has been performed on it.
 
->**Note**: MPI-IO writes binary files and does not truncate the file on which it'll write if it already exists: if you want to run the program with a size which is smaller than the previous one, delete the `solution.dat` file before running, in order to generate it from scratch instead of overwriting it. `compare%pu` targets are already provided with an internal `clean`, in order to repeatedly compare results without having to worry about non-truncated files.
+>**Note**: MPI-IO writes binary files and does not truncate the file on which it'll write if it already exists: if you want to run the program with a size which is smaller than the previous one, `make clean` or empty the `output` folder before running, in order to generate it from scratch instead of overwriting it. `compare%pu` targets are already provided with an internal `clean`, in order to repeatedly compare results without having to worry about non-truncated files.

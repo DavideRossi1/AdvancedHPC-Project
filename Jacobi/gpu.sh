@@ -9,6 +9,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:4
 #SBATCH --exclusive
+#SBATCH --mem=481G
 #SBATCH --time=00:30:00
 
 module load openmpi/4.1.6--nvhpc--23.11
@@ -29,7 +30,7 @@ make gpusave
 echo "initacc;copyin;init;update;sendrecv;evolve;save;copyout;total" >> $file
 for nTasks in 1 2 4 8 16 32
 do
-        mpirun -np $nTasks ./jacobi.x $size $nIter >> $file
+        mpirun -np $nTasks --map-by ppr:4:node:pe=8 --bind-to core ./jacobi.x $size $nIter >> $file
 done
 
 size=12000
@@ -39,7 +40,7 @@ file=data/gpu$size.csv
 echo "initacc;copyin;init;update;sendrecv;evolve;save;copyout;total" >> $file
 for nTasks in 1 2 4 8 16 32
 do
-        mpirun -np $nTasks ./jacobi.x $size $nIter >> $file
+        mpirun -np $nTasks --map-by ppr:4:node:pe=8 --bind-to core ./jacobi.x $size $nIter >> $file
 done
 
 make clean
@@ -52,7 +53,7 @@ file=data/gpu$size.csv
 echo "initacc;copyin;init;update;sendrecv;evolve;save;copyout;total" >> $file
 for nTasks in 1 2 4 8 16 32
 do
-        mpirun -np $nTasks ./jacobi.x $size $nIter >> $file
+        mpirun -np $nTasks --map-by ppr:4:node:pe=8 --bind-to core ./jacobi.x $size $nIter >> $file
 done
 
 echo "Done"

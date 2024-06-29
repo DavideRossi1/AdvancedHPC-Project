@@ -3,8 +3,8 @@
 ## Table of Contents <!-- omit in toc -->
 - [Introduction](#introduction)
 - [Matrix-Matrix Multiplication using MPI](#matrix-matrix-multiplication-using-mpi)
-- [Basic version](#basic-version)
-- [Improved CPU version](#improved-cpu-version)
+- [CPU baseline: naive algorithm](#cpu-baseline-naive-algorithm)
+- [CPU improvement: BLAS](#cpu-improvement-blas)
 - [GPU version](#gpu-version)
 - [Results](#results)
   - [CPU - Naive](#cpu---naive)
@@ -148,40 +148,31 @@ Finally, let's analyze the GPU version: first of all, let's see the results for 
 
 ![gpu5000](imgs/results/gpu5000all.png)
 
-As we can see, the most time consuming part of the code is `resAlloc`, this means we are spending most of the time in moving the matrices from CPU to GPU and back. `init` seems to behave as in the CPU case, which is totally expected since it is done on CPU. Let's have a deeper look at the other parts of the code:
+As we can see, the most time consuming part of the code is `resAlloc`, this means we are spending most of the time in moving the matrices from CPU to GPU and back: the matrices are far too small to expect a good speedup from the GPU. 
 
-![gpu5000](imgs/results/gpu5000noinit.png)
+Let's increase  the matrix size:
 
-Also `initComm` and `gather` behave as in the CPU case as expected, and `place` time is practically zero, as it is done on the GPU.
+![gpu10000](imgs/results/gpu10kall.png)
+
+More or less the same results as before, but we can start to appreciate a bit of speedup. 
 
 Let's now analyze the results for the 45000x45000 matrices:
 
-![gpuall](imgs/results/gpuall.png)
+![gpu45000](imgs/results/gpu45kall.png)
 
-By looking at the results of the measurements, we immediately spot three things:
-- the most time consuming part of the code is now `init`, which is expected since it is done on CPU;
-- `resAlloc` time is the second most time consuming part of the code;
-- `dGemm` time is insignificant with respect to the other parts.
-
-Let's try to remove `init`:
-
-![gpunoinit](imgs/results/gpuNoinit.png)
-
-As we can see, `resAlloc` time is quite relevant. One thing that is worth to notice is the fact that it scales almost perfectly up to 4 MPI tasks, but then the speedup basically stops (while the same does not happen to `init` and `initComm`). This is explainable by taking into consideration the fact that a single node of Leonardo's boost partition has 4 GPUs, hence by using up to 4 MPI tasks we are allocating everything in the same node, while using 8, 16, 32 tasks we are asking for 2, 4, 8 nodes and the communication time needed to allocate memory will not be negligible. `init` and `initComm` time, instead, are only performed on CPU and are not affected by the number of available GPUs.
-
-Let's remove `resAlloc` as well to see how the other parts behave:
-
-![gpunoresalloc](imgs/results/gpuNoresalloc.png)
-
-`gather` and `initComm` time show the same behavior as in the previous cases, and the only remaining visible part is now `initCuda`. Notice that `place` time is practically zero as it is done on the GPU.
+By looking at the results of the measurements, we immediately spot two things:
+- `init` and `dGemm` take nearly the same time, although the latter is much more computationally intensive than the former, since `init` is performed on the CPU, while `dGemm` is performed on the GPU;
+- `gather` and `resAlloc` are less impactant than in the previous cases, but still quite relevant, especially with 16 and 32 MPI tasks (corresponding to 4 and 8 nodes).
 
 ### Comparison
 
 Let's compare the results obtained by the three algorithms:
 
-![comp](imgs/results/comparison5000.png)
+![comp](imgs/results/comparison5k.png)
 
-![comp](imgs/results/comparison10000.png) 
+![comp](imgs/results/comparison10k.png) 
+
+![comp](imgs/results/comparison45k.png)
 
 ## How to run
 

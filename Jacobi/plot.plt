@@ -12,6 +12,6 @@ if(niter>1) {
     }
 } else {
     set terminal pngcairo size 640,480
-    set output 'solution.png'
+    set output 'output/solution.png'
     plot 'output/solution0.dat' binary format='%double' using ($1):($2):($3) with image notitle
 }
