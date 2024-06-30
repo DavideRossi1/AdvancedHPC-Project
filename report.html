@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.3.433">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>report</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="report_files/libs/clipboard/clipboard.min.js"></script>
+<script src="report_files/libs/quarto-html/quarto.js"></script>
+<script src="report_files/libs/quarto-html/popper.min.js"></script>
+<script src="report_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="report_files/libs/quarto-html/anchor.min.js"></script>
+<link href="report_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="report_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="report_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="report_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="report_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+</head>
+
+<body class="fullcontent">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+
+
+<section id="final-report" class="level1">
+<h1>Final report <!-- omit in toc --></h1>
+<section id="table-of-contents" class="level2">
+<h2 class="anchored" data-anchor-id="table-of-contents">Table of Contents <!-- omit in toc --></h2>
+<ul>
+<li><a href="#exercise-1-distributed-matrix-matrix-multiplication">Exercise 1: Distributed Matrix-Matrix Multiplication</a>
+<ul>
+<li><a href="#introduction">Introduction</a></li>
+<li><a href="#matrix-matrix-multiplication-using-mpi">Matrix-Matrix Multiplication using MPI</a></li>
+<li><a href="#cpu-baseline-naive-algorithm">CPU baseline: naive algorithm</a></li>
+<li><a href="#cpu-improvement-blas">CPU improvement: BLAS</a></li>
+<li><a href="#gpu-version">GPU version</a></li>
+<li><a href="#results">Results</a>
+<ul>
+<li><a href="#cpu---naive">CPU - Naive</a></li>
+<li><a href="#cpu---blas">CPU - BLAS</a></li>
+<li><a href="#gpu">GPU</a></li>
+<li><a href="#comparison">Comparison</a></li>
+</ul></li>
+<li><a href="#how-to-run">How to run</a></li>
+</ul></li>
+<li><a href="#exercise-2-jacobis-algorithm-with-openacc">Exercise 2: Jacobi’s Algorithm with OpenACC</a>
+<ul>
+<li><a href="#introduction-1">Introduction</a></li>
+<li><a href="#jacobis-algorithm">Jacobi’s algorithm</a></li>
+<li><a href="#distribute-the-domain-mpi">Distribute the domain: MPI</a></li>
+<li><a href="#move-to-gpu-openacc">Move to GPU: OpenACC</a></li>
+<li><a href="#results-1">Results</a>
+<ul>
+<li><a href="#cpu">CPU</a></li>
+<li><a href="#gpu-1">GPU</a></li>
+<li><a href="#comparison-1">Comparison</a></li>
+<li><a href="#save-time">Save time</a></li>
+</ul></li>
+<li><a href="#how-to-run-1">How to run</a></li>
+<li><a href="#check-correctness">Check correctness</a></li>
+</ul></li>
+<li><a href="#exercise-3-jacobis-algorithm-with-one-sided-mpi">Exercise 3: Jacobi’s Algorithm with One-Sided MPI</a>
+<ul>
+<li><a href="#introduction-2">Introduction</a></li>
+<li><a href="#jacobis-algorithm-1">Jacobi’s algorithm</a></li>
+<li><a href="#distribute-the-domain-mpi-1">Distribute the domain: MPI</a></li>
+<li><a href="#results-2">Results</a>
+<ul>
+<li><a href="#save-time-1">Save time</a></li>
+</ul></li>
+<li><a href="#how-to-run-2">How to run</a></li>
+<li><a href="#check-correctness-1">Check correctness</a></li>
+</ul></li>
+</ul>
+</section>
+</section>
+<section id="exercise-1-distributed-matrix-matrix-multiplication" class="level1">
+<h1>Exercise 1: Distributed Matrix-Matrix Multiplication</h1>
+<section id="introduction" class="level2">
+<h2 class="anchored" data-anchor-id="introduction">Introduction</h2>
+<p>The first assignment consists of implementing a distributed matrix-matrix multiplication, using the MPI library to communicate between processes. More precisely, 3 versions of the algorithm are required:</p>
+<ul>
+<li>a basic version with the naive algorithm (triple loop);</li>
+<li>an improved CPU version using BLAS library;</li>
+<li>a GPU version using CUDA and CUBLAS library.</li>
+</ul>
+<p>Before digging into the implementation of the three versions, let’s first describe the problem and how to solve it.</p>
+</section>
+<section id="matrix-matrix-multiplication-using-mpi" class="level2">
+<h2 class="anchored" data-anchor-id="matrix-matrix-multiplication-using-mpi">Matrix-Matrix Multiplication using MPI</h2>
+<p>Matrix-matrix multiplication is a fundamental operation in linear algebra and a good exercise to implement in a distributed environment. It consists in computing <span class="math inline">\(C=A\times B\)</span>, where A is a <span class="math inline">\(m\times n\)</span> matrix, B is a <span class="math inline">\(n\times l\)</span> matrix and the output <span class="math inline">\(C\)</span> is a <span class="math inline">\(m\times l\)</span> matrix. The implementation of a distributed matrix-matrix multiplication lies on two main concepts:</p>
+<ul>
+<li>matrices are saved by rows in contiguous memory;</li>
+<li>each of the three matrices is distributed among the processes.</li>
+</ul>
+<p>For this assignment, we will consider the matrices to be distributed <em>by rows</em> among the processes, hence each process will have a submatrix, which we will call <code>myA</code>, <code>myB</code> and <code>myC</code>, with a fixed number of rows of each matrix (equal to the number of rows of the entire matrix divided by the number of processes). Since in general the number of rows of the matrices is not divisible by the number of processes, some processes will actually have one more row than the others:</p>
+<figure class="figure">
+<img src="Distributed_MatMul/imgs/workshare.png" alt="Image description" height="50" class="figure-img">
+<figcaption class="figure-caption">
+How different processes share work
+</figcaption>
+</figure>
+<figure class="figure">
+<img src="Distributed_MatMul/imgs/mult.png" alt="Image description" height="300" class="figure-img">
+<figcaption class="figure-caption">
+Distribute matrix-matrix multiplication
+</figcaption>
+</figure>
+<p>The idea to compute the product is the following: iterate over the number of processes: at each iteration, each process:</p>
+<ul>
+<li>re-builds a group of columns of <span class="math inline">\(B\)</span>, named <code>columnB</code>, by gathering the necessary part from all the other processes;</li>
+<li>computes <code>myCBlock = myA × columnB</code>;</li>
+<li>places <code>myCBlock</code> in <code>myC</code>: the union of the <code>myCBlock</code>s of the current iteration will give a group of columns of the final matrix <span class="math inline">\(C\)</span>.</li>
+</ul>
+<p>Essentially, <span class="math inline">\(C\)</span> matrix is built by columns: at iteration <code>i+1</code>, for <code>i=0,...NPEs-1</code>, each process computes its <code>myNRows</code> rows of a block of <span class="math inline">\(k\)</span> columns, where <span class="math inline">\(k\)</span> is the worksize of the <code>i</code>-th process.</p>
+<p>For example, the product in the picture above is computed in 3 iterations, as:</p>
+<p><img src="Distributed_MatMul/imgs/it1.png" height="400"></p>
+<p><br> <img src="Distributed_MatMul/imgs/it2.png" height="400"></p>
+<p><br> <img src="Distributed_MatMul/imgs/it3.png" height="400"></p>
+<p>where <code>columnB</code> is made by the current process part, in yellow, and the parts sent by the other two processes, in blue and pink, and <code>myCBlock</code>, in green, is computed and placed in the correct position in <code>myC</code>. Note that no process will ever store any of the matrices in their entirety, but only the part they need to compute their part of the product.</p>
+<p>The code that executes the iterations is:</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Distributed_MatMul/imgs/MM_code.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Matrix-matrix multiplication base code</figcaption>
+</figure>
+</div>
+<p>Where the <code>matMul</code> part branches according to the version of the algorithm we are implementing. Let’s have a look at some details about the three versions.</p>
+</section>
+<section id="cpu-baseline-naive-algorithm" class="level2">
+<h2 class="anchored" data-anchor-id="cpu-baseline-naive-algorithm">CPU baseline: naive algorithm</h2>
+<p>The basic version of the algorithm is the naive implementation of the matrix-matrix multiplication, using the triple loop:</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Distributed_MatMul/imgs/basic.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Naive product</figcaption>
+</figure>
+</div>
+<p><code>startPoint</code> is a shift that allows to directly position the computed values in <code>myC</code>, without using the support matrix <code>myCBlock</code>. Except for this, the code is straightforward: each process computes its <code>myCBlock</code>, with size <code>myNRows x nColumnsBblock</code>, by iterating over the rows of <code>myA</code> and the columns of <code>columnB</code>.</p>
+</section>
+<section id="cpu-improvement-blas" class="level2">
+<h2 class="anchored" data-anchor-id="cpu-improvement-blas">CPU improvement: BLAS</h2>
+<p>The improved CPU version uses the BLAS library to compute the matrix-matrix multiplication.</p>
+<p>The BLAS library is <em>“…a specification that prescribes a set of low-level routines for performing common linear algebra operations such as vector addition, scalar multiplication, dot products, linear combinations, and matrix multiplication… (from <a href="https://en.wikipedia.org/wiki/Basic_Linear_Algebra_Subprograms">Wikipedia</a>)”</em>, and constitutes the de-facto standard for linear algebra libraries.</p>
+<p>The routine we are interested in is <code>dgemm</code>, which computes the matrix-matrix product of two matrices with double-precision elements. The code here is just a little bit more complex than the basic version: product and <code>myCBlock</code> placement are split in two different steps:</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Distributed_MatMul/imgs/blas.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Product with BLAS library</figcaption>
+</figure>
+</div>
+<p>We first compute the product and store it in <code>myCBlock</code>, then we place <code>myCBlock</code> in <code>myC</code> using the <code>startPoint</code> shift.</p>
+<p>Notice that we are specifying to <code>dgemm</code> that we don’t want to transpose the matrices. This is done since we want to settle in a scenario were the original matrices are already given, all in the same format (a fixed number of rows for each process), hence gathering is necessary to perform the product.</p>
+</section>
+<section id="gpu-version" class="level2">
+<h2 class="anchored" data-anchor-id="gpu-version">GPU version</h2>
+<p>GPU execution, which is done with CUDA and CUBLAS library, requires one more step with respect to the previous version:</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Distributed_MatMul/imgs/cuda.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Product with CUBLAS library</figcaption>
+</figure>
+</div>
+<p>We first copy <code>columnB</code> to the GPU, then we compute the product and place it in <code>myCBlock</code> as in the previous case. Some interesting points to notice are:</p>
+<ul>
+<li>all the matrices have already been preallocated on the GPU at the beginning of the execution, hence the only thing we are missing is the copy of <code>columnB</code>, which is built on the CPU at each iteration and then moved to the GPU;</li>
+<li><code>cublasDgemm</code>, the CUBLAS routine that performs the product, takes as input the matrices in column-major format by default, and we don’t want to transpose them to avoid losing performances, hence we perform the product in the inverse order, exploiting the fact that <span class="math inline">\(C=A\times B\)</span> is equivalent to <span class="math inline">\(C^T=B^T\times A^T\)</span>: in this way the product output, which is saved in <code>myCBlock_dev</code>, is already in the correct format to be placed in <code>C_dev</code> (the GPU memory location of <code>myC</code>), but you must be careful to correctly set the leading dimensions of the matrices in the <code>cublasDgemm</code> call;</li>
+<li>to access <code>myCBlock_dev</code> and to modify <code>C_dev</code> we need to use a kernel function, since we are working on the GPU. Hence, we are working exclusively on the GPU for the product and the placement of <code>myCBlock_dev</code> in <code>C_dev</code>: only at the end of the program <code>C_dev</code> is copied back to the CPU.</li>
+</ul>
+</section>
+<section id="results" class="level2">
+<h2 class="anchored" data-anchor-id="results">Results</h2>
+<p>In this section we will analyze the results of the three versions of the algorithm. The code has been run on the Leonardo cluster, with up to 16 MPI tasks allocated one per node, for CPU versions, and up to 32 MPI tasks allocated four per node, one per GPU card, for the GPU version. The matrices have been generated randomly at each run and the execution time has been measured with the <code>MPI_Wtime</code> function. The tests have been done on matrices of various sizes, in order to compare CPU and GPU performances and also evaluate the scalability. The maximum time among all the MPI processes has been plotted. However, I have also collected data regarding the average time and they have showed the same behavior, meaning the workload is correctly distributed among the processes, for this reason they have not been plotted.</p>
+<p>To easily identify the different parts of the code and plot them I have used some terms, here a brief explanation of them is given, in order of appearance in the code:</p>
+<ul>
+<li><code>initCuda</code>: initialization of Cuda, with <code>cudaGetDeviceCount</code> and <code>cudaSetDevice</code>;</li>
+<li><code>init</code>: initialization of the three matrices (done on CPU);</li>
+<li><code>initComm</code>: initialization of <code>myBblock</code>, <code>recvcounts</code> and <code>displs</code> for the communication;</li>
+<li><code>resAlloc</code>: everything related to the allocation of the matrices, both on CPU and on GPU (hence <code>malloc</code>, <code>cudaMalloc</code>, <code>cublasCreate</code> and <code>cudaMemcpy</code>);</li>
+<li><code>gather</code>: gathering of <code>myBblock</code> into <code>columnB</code> from all the processes;</li>
+<li><code>dGemm</code>: computation of the product, with triple loop (naive), <code>cblas_dgemm</code> (cpu) or <code>cublasDgemm</code> (gpu);</li>
+<li><code>place</code>: placement of <code>myCBlock</code> inside <code>myC</code>.</li>
+</ul>
+<section id="cpu---naive" class="level3">
+<h3 class="anchored" data-anchor-id="cpu---naive">CPU - Naive</h3>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Distributed_MatMul/imgs/results/naiveAll.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Naive algorithm, total execution time</figcaption>
+</figure>
+</div>
+<p>As we can see, almost all the execution time is occupied by the computation of the product. Let’s try to remove it to see how the other parts behave:</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Distributed_MatMul/imgs/results/naiveNomult.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Naive algorithm, execution time without product</figcaption>
+</figure>
+</div>
+<p>Excluding <code>dGemm</code> time, <code>init</code> and <code>gather</code> seem to be the most time consuming parts of the code (still nearly 2 orders of magnitude far from product part though). <code>init</code> is scaling a bit, but the matrix is way too small to expect something better.</p>
+<p>In order to understand how the code scales with the size, let’s also have a look at the results for 10000x10000 matrices: since the algorithm complexity is <span class="math inline">\(O(N^3)\)</span>, we expect <code>dGemm</code> part to grow about 8 times:</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Distributed_MatMul/imgs/results/naive10000.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Naive algorithm, total execution time</figcaption>
+</figure>
+</div>
+<p>Without the product part:</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Distributed_MatMul/imgs/results/naive10000nomult.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Naive algorithm, execution time without product</figcaption>
+</figure>
+</div>
+<p><code>init</code> seems now to scale pretty well, as expected.</p>
+</section>
+<section id="cpu---blas" class="level3">
+<h3 class="anchored" data-anchor-id="cpu---blas">CPU - BLAS</h3>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Distributed_MatMul/imgs/results/cpuall.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Algorithm with BLAS, total execution time</figcaption>
+</figure>
+</div>
+<p>Also in this case, <code>dGemm</code> is the most time consuming part of the code, as we would expect. However, <code>dGemm</code> time is now ~20 times smaller than in the naive case, hence <code>gather</code> and <code>init</code> become quite significant now.</p>
+<p>Notice that:</p>
+<ul>
+<li><code>place</code> time was not present in the naive case, since the product was directly placed in <code>myC</code>, while in this case we first compute the product and then place it in <code>myC</code>. However, the time spent in <code>place</code> is negligible with respect to the time spent in <code>dGemm</code>, <code>init</code> and <code>gather</code>;</li>
+<li>for both naive and CPU version, <code>resAlloc</code> time is practically zero, since the matrices are allocated only in the CPU. We’ll see that this won’t be the case in the GPU version.</li>
+</ul>
+<p>Let’s see how the code scales with the size:</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Distributed_MatMul/imgs/results/cpu10000.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Algorithm with BLAS, total execution time</figcaption>
+</figure>
+</div>
+<p>Results are a bit better than before but <code>gather</code> is still quite impactant. Let’s try with bigger matrices:</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Distributed_MatMul/imgs/results/cpu30000.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Algorithm with BLAS, total execution time</figcaption>
+</figure>
+</div>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Distributed_MatMul/imgs/results/cpu45000.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Algorithm with BLAS, total execution time</figcaption>
+</figure>
+</div>
+<p>As we can see, with bigger matrices we are able to obtain a pretty decent scalability, although the <code>gather</code> part becomes quite impactant at large number of processes, thus becoming the real bottleneck as we would expect.</p>
+</section>
+<section id="gpu" class="level3">
+<h3 class="anchored" data-anchor-id="gpu">GPU</h3>
+<p>Finally, let’s analyze the GPU version: first of all, let’s see the results for the 5000x5000 matrices in order to compare them with the previous cases:</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Distributed_MatMul/imgs/results/gpu5000all.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Algorithm with CUBLAS, total execution time</figcaption>
+</figure>
+</div>
+<p>As we can see, the most time consuming part of the code is <code>resAlloc</code>, this means we are spending most of the time in moving the matrices from CPU to GPU and back: the matrices are far too small to expect a good speedup from the GPU.</p>
+<p>Let’s increase the matrix size:</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Distributed_MatMul/imgs/results/gpu10kall.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Algorithm with CUBLAS, total execution time</figcaption>
+</figure>
+</div>
+<p>More or less the same results as before, but we can start to appreciate a bit of speedup.</p>
+<p>Let’s now analyze the results for the 45000x45000 matrices:</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Distributed_MatMul/imgs/results/gpu45kall.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Algorithm with CUBLAS, total execution time</figcaption>
+</figure>
+</div>
+<p>By looking at the results of the measurements, we immediately spot two things:</p>
+<ul>
+<li><code>init</code> and <code>dGemm</code> take more or less the same time, although the latter is much more computationally intensive than the former, since <code>init</code> is performed on the CPU, while <code>dGemm</code> is performed on the GPU;</li>
+<li><code>gather</code> and <code>resAlloc</code> are still quite relevant, especially with 16 and 32 MPI tasks (corresponding to 4 and 8 nodes).</li>
+</ul>
+</section>
+<section id="comparison" class="level3">
+<h3 class="anchored" data-anchor-id="comparison">Comparison</h3>
+<p>Let’s compare the results obtained by the three algorithms:</p>
+<p><img src="Distributed_MatMul/imgs/results/comparison5k.png" class="img-fluid"></p>
+<p><img src="Distributed_MatMul/imgs/results/comparison10k.png" class="img-fluid"></p>
+<p><img src="Distributed_MatMul/imgs/results/comparison45k.png" class="img-fluid"></p>
+</section>
+</section>
+<section id="how-to-run" class="level2">
+<h2 class="anchored" data-anchor-id="how-to-run">How to run</h2>
+<p>A Makefile is provided to easily compile and run the code. The available targets are:</p>
+<ul>
+<li><code>make naive</code>: produce an executable running with the naive algorithm (triple loop);</li>
+<li><code>make cpu</code>: produce an executable running with the BLAS library (requires BLAS, on Leonardo you can load it with <code>module load openblas/0.3.24--nvhpc--23.11</code>);
+<blockquote class="blockquote">
+<strong>Note</strong>: Leonardo also provides the <code>openblas/0.3.24--gcc--12.2.0</code> module, but this version is not able to execute <code>cblas_dgemm</code> routine in parallel, hence we wouldn’t be able to exploit the full potential of the CPU;
+</blockquote></li>
+<li><code>make gpu</code>: produce an executable running with CUDA and CUBLAS library (requires CUDA and CUBLAS, in Leonardo they are included in the <code>nvhpc</code> module which also provides a CUDA-Aware MPI library);</li>
+<li><code>make clean</code>: remove all the executables and the object files.</li>
+</ul>
+<p>After compilation, the executables can be run with <code>mpirun -np &lt;np&gt; ./main &lt;size&gt;</code>.</p>
+<p>The Makefile also provides some shortcuts to directly compile and run the code:</p>
+<ul>
+<li><code>make naiverun NP=&lt;np&gt; SZ=&lt;size&gt;</code>: equivalent to <code>make clean &amp;&amp; make naive &amp;&amp; mpirun -np &lt;np&gt; ./main &lt;size&gt;</code>;</li>
+<li><code>make cpurun NP=&lt;np&gt; SZ=&lt;size&gt;</code>: equivalent to <code>make clean &amp;&amp; make cpu &amp;&amp; mpirun -np &lt;np&gt; ./main &lt;size&gt;</code>;</li>
+<li><code>make gpurun NP=&lt;np&gt; SZ=&lt;size&gt;</code>: equivalent to <code>make clean &amp;&amp; make gpu &amp;&amp; mpirun -np &lt;np&gt; ./main &lt;size&gt;</code>.</li>
+</ul>
+<div style="page-break-after: always;">
+
+</div>
+</section>
+</section>
+<section id="exercise-2-jacobis-algorithm-with-openacc" class="level1">
+<h1>Exercise 2: Jacobi’s Algorithm with OpenACC</h1>
+<section id="introduction-1" class="level2">
+<h2 class="anchored" data-anchor-id="introduction-1">Introduction</h2>
+<p>The second assignment consists of implementing the Jacobi’s method to solve Laplace equation in a distributed memory environment, using the MPI library to communicate between processes and OpenACC to parallelize the computation on GPU. The program is expected to run entirely on GPU, without any data transfer between CPU and GPU in the middle of the computation.</p>
+<p>Before digging into the implementation of the algorithm, let’s first describe the problem and how to solve it.</p>
+</section>
+<section id="jacobis-algorithm" class="level2">
+<h2 class="anchored" data-anchor-id="jacobis-algorithm">Jacobi’s algorithm</h2>
+<p>Laplace’s equation is a second-order partial differential equation, often written in the form</p>
+<p><span class="math display">\[
+\nabla^2 V = 0
+\]</span></p>
+<p>where <span class="math inline">\(V\)</span> is the unknown function of the spatial coordinates <span class="math inline">\(x\)</span>, <span class="math inline">\(y\)</span>, and <span class="math inline">\(z\)</span>, and <span class="math inline">\(\nabla^2\)</span> is the Laplace operator. The Laplace equation is named after Pierre-Simon Laplace, who first studied its properties. Solutions of Laplace’s equation are called harmonic functions and are important in many areas of physics, including the study of electromagnetic fields, heat conduction and fluid dynamics. In two dimensions, Laplace’s equation is given by</p>
+<p><span class="math display">\[
+\frac{\partial^2 V}{\partial x^2} + \frac{\partial^2 V}{\partial y^2} = 0
+\]</span></p>
+<p>whose solution can be iteratively found through Jacobi’s method: if we discretize the domain in a grid of points, the value of each point can be updated as the average of its neighbors. The algorithm is as follows:</p>
+<ul>
+<li><p>initialize two matrices as in the following picture: the first matrix is filled with zeros, the second one with <span class="math inline">\(0.5\)</span>, both with the same boundary conditions: <span class="math inline">\(0\)</span> in the upper and right boundaries, <span class="math inline">\(100\)</span> in the lower left corner, with increasing values starting from that corner and getting farther from it along the left and lower boundaries:</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Jacobi/imgs/init.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Matrices initialization</figcaption>
+</figure>
+</div></li>
+<li><p>Iterate over the grid points, updating each internal point of the first matrix as the average of its neighbors in the second matrix:</p></li>
+</ul>
+<p><span class="math display">\[
+V_{i,j}^{k+1} = \frac{1}{4} \left( V_{i-1,j}^k + V_{i+1,j}^k + V_{i,j-1}^k + V_{i,j+1}^k \right)
+\]</span></p>
+<ul>
+<li>Swap the pointers of the two matrices and repeat points 2 and 3 until a desired convergence criterion is met.</li>
+</ul>
+<p>The following gif shows the evolution of the matrix during 100 iterations:</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Jacobi/imgs/solution.gif" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Matrix evolution</figcaption>
+</figure>
+</div>
+</section>
+<section id="distribute-the-domain-mpi" class="level2">
+<h2 class="anchored" data-anchor-id="distribute-the-domain-mpi">Distribute the domain: MPI</h2>
+<p>Since at each iteration each point is updated independently on the others (we only need their old value, which is constant during the update), this algorithm clearly opens the door to parallelization: each process can be assigned a subgrid of the domain, and the communication between processes is only needed at the boundaries of the subgrids.</p>
+<p>In this assignment, we will consider the domain to be distributed by rows among multiple MPI processes, hence each process will have a subgrid with a fixed number of rows of the entire grid (equal to the total number of rows divided by the number of processes, plus two more rows, one above and one below, that will be needed to perform the update). Since in general the number of rows of the grid is not divisible by the number of processes, some processes will actually have one more row than the others:</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Jacobi/imgs/worksharing.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">How different processes share the work</figcaption>
+</figure>
+</div>
+<p>For example, if <code>dim</code><span class="math inline">\(=9\)</span> and <code>NPEs</code><span class="math inline">\(=3\)</span>, we have the situation showed in the following picture:</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Jacobi/imgs/sendrecgraph.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Rows exchange between processes</figcaption>
+</figure>
+</div>
+<p>The idea to compute the solution is the following: each process will have two submatrices with <code>myWorkSize = 9/3 + 0 + 2 = 5</code> rows, also considering the 2 ghost rows, one above and one below, to perform the update. Each process only initializes and updates the internal rows of one submatrix, and then exchanges the boundary rows with the neighbor processes. More precisely, each process first initializes its own submatrices and then continuously:</p>
+<ul>
+<li><p>updates the values of the internal points (hence excluding its first and last row and the first and last column) of one submatrix using the values from the other one:</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Jacobi/imgs/update.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Matrix update</figcaption>
+</figure>
+</div></li>
+<li><p>updates the boundaries: it sends its second row to the upper process and its semilast row to the lower one, and receives its first row from the upper process and its last row from the lower one (first and last process only put a single row, since the other one is a fixed boundary condition):</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Jacobi/imgs/sendrec.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Rows exchange between processes</figcaption>
+</figure>
+</div></li>
+<li><p>swaps the pointers to the matrices, so that the new matrix becomes the old one and vice versa;</p></li>
+</ul>
+<p>until a desired convergence criterion is met.</p>
+</section>
+<section id="move-to-gpu-openacc" class="level2">
+<h2 class="anchored" data-anchor-id="move-to-gpu-openacc">Move to GPU: OpenACC</h2>
+<p>The Jacobi’s method is a perfect candidate for GPU acceleration, and OpenACC offers simple and powerful instruments to do so. The idea is to generate a <code>data</code> region to allocate the matrix on the GPU and perform both initialization and updates there, and then copy it back to the CPU:</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Jacobi/imgs/accdata.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Open a data region</figcaption>
+</figure>
+</div>
+<p>Both initialization and update can then be parallelized using the <code>parallel loop</code> directive:</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Jacobi/imgs/initacc.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">A part of matrices initialization, done with OpenACC</figcaption>
+</figure>
+</div>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Jacobi/imgs/updacc.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Matrix update with OpenACC</figcaption>
+</figure>
+</div>
+<p>Also, in order to execute the the rows exchange directly between GPUs, <code>acc host_data use_device</code> directive has been used:</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Jacobi/imgs/sendrecacc.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Rows exchange between processes, performed on GPUs</figcaption>
+</figure>
+</div>
+</section>
+<section id="results-1" class="level2">
+<h2 class="anchored" data-anchor-id="results-1">Results</h2>
+<p>In this section we will analyze the performances obtained by the algorithm, both on CPU and on GPU. The code has been run on the Leonardo cluster, with up to 16 MPI tasks allocated one per node, for CPU versions, and up to 32 MPI tasks allocated four per node, one per GPU card, for the GPU version. The execution time has been measured with the <code>MPI_Wtime</code> function. The tests have been done with a matrix of size 1200x1200 and 12000x12000, with 10 evolution iterations, and 40000x40000, with 1000 iterations, to better study the scalability. The maximum time among all the MPI processes has been plotted. However, I have also collected data regarding the average time and they have showed the same behavior, meaning the workload is correctly distributed among the processes, for this reason they have not been plotted.</p>
+<p>To easily identify the different parts of the code and plot them I have used some terms, here a brief explanation of them is given, in order of appearance in the code:</p>
+<ul>
+<li><code>initacc</code>: initialization of OpenACC, with <code>acc_get_num_devices</code>, <code>acc_set_device_num</code> and <code>acc_init</code>;</li>
+<li><code>copyin</code>: enter the data region, allocate the matrices on GPU;</li>
+<li><code>init</code>: initialization of the matrices;</li>
+<li><code>update</code>: total time spent on updating the matrix;</li>
+<li><code>sendrecv</code> total time spent on exchanging the ghost rows;</li>
+<li><code>save</code>: save the matrix on file using MPI-IO;</li>
+<li><code>copyout</code>: copying the output matrix from GPU to CPU.</li>
+</ul>
+<blockquote class="blockquote">
+<strong>Note</strong>: to further improve performances on CPU, OpenMP is used to parallelize both the initialization and the update of the matrices when GPUs are not available.
+</blockquote>
+<section id="cpu" class="level3">
+<h3 class="anchored" data-anchor-id="cpu">CPU</h3>
+<p>Let’s start with the CPU version:</p>
+<p><img src="Jacobi/imgs/results/cpu1200.png" class="img-fluid"></p>
+<p>As we can see, there is basically no scalability due to the very low time spent. <code>init</code> takes almost all the time, with <code>update</code> being practically irrelevant due to the very low number of updates done.</p>
+<p>Let’s see how things change with a larger matrix:</p>
+<p><img src="Jacobi/imgs/results/cpu12000.png" class="img-fluid"></p>
+<p>We can start to appreciate some speedup, and the time spent on <code>update</code> is now relevant, although <code>init</code> is still the most time-consuming part of the code, but scalability still almost interrupts after 4 tasks.</p>
+<p>Let’s see what happens with a much larger matrix and more iterations:</p>
+<p><img src="Jacobi/imgs/results/cpu40000.png" class="img-fluid"></p>
+<p>We can finally appreciate a great scalability, with the time spent on <code>update</code> being the most relevant part of the code, as we would expect.</p>
+</section>
+<section id="gpu-1" class="level3">
+<h3 class="anchored" data-anchor-id="gpu-1">GPU</h3>
+<p>Let’s now move to the GPU version:</p>
+<p><img src="Jacobi/imgs/results/gpu1200.png" class="img-fluid"></p>
+<p>As we can see, it is totally pointless to run the code on GPU with such a small matrix, since most of the time is spent on <code>initacc</code>, hence we would get no speedup at all. Let’s see what happens with a larger matrix:</p>
+<p><img src="Jacobi/imgs/results/gpu12000.png" class="img-fluid"></p>
+<p>We can start to appreciate some speedup, but the time spent on <code>initacc</code> is still relevant and most of the time is spent in <code>copyout</code> (with less tasks) or still in <code>initacc</code> (with more tasks), with <code>init</code> and <code>update</code> being basically negligible. This is due to the fact that the workload is too small to fully exploit the power of the GPU. Let’s then try to run the code with a much larger matrix and many more iterations, in order to increase the workload:</p>
+<p><img src="Jacobi/imgs/results/gpu40000.png" class="img-fluid"></p>
+<p>We can finally appreciate a significant speedup even with a large number of MPI tasks: the time spent on <code>initacc</code> is now negligible with respect to the other parts of the code and most of the time is now spent on the update, as we would expect.</p>
+</section>
+<section id="comparison-1" class="level3">
+<h3 class="anchored" data-anchor-id="comparison-1">Comparison</h3>
+<p>Let’s now compare the CPU and GPU versions with the same matrix size and number of iterations:</p>
+<p><img src="Jacobi/imgs/results/comparison.png" class="img-fluid"></p>
+<p><img src="Jacobi/imgs/results/comparisonall.png" class="img-fluid"></p>
+<p>As we can see, if with a small matrix the GPU version is not convenient at all, with a larger matrix we can appreciate a significant boost in performances.</p>
+</section>
+<section id="save-time" class="level3">
+<h3 class="anchored" data-anchor-id="save-time">Save time</h3>
+<p>Up to now we have ignored the <code>save</code> time, let’s now see how it affects the performances: since it is not influenced by GPU acceleration, we’ll just compare it with other parts of the code in order to understand its magnitude:</p>
+<p><img src="Jacobi/imgs/results/1200save.png" class="img-fluid"></p>
+<p><img src="Jacobi/imgs/results/12000save.png" class="img-fluid"></p>
+<p>As we can see, using MPI-IO we are able to save some time writing on file in parallel, but this is still by far the most time-consuming part of the code.</p>
+</section>
+</section>
+<section id="how-to-run-1" class="level2">
+<h2 class="anchored" data-anchor-id="how-to-run-1">How to run</h2>
+<blockquote class="blockquote">
+<em>Disclaimer</em>: <code>%pu...</code> means that the target exists both as <code>cpu...</code> and <code>gpu...</code>
+</blockquote>
+<p>A Makefile is provided to easily compile and run the code. The available targets are:</p>
+<ul>
+<li><code>make %pu</code>, <code>make %pusave</code> and <code>make %pugif</code>: produce an executable running on CPU with OpenMP or on GPU with OpenACC, the second one also saves the final matrix in a file <code>solution.dat</code>, while the third one saves the entire evolution of the matrix in multiple <code>.dat</code> files;</li>
+<li><code>make plot</code>: produce a plot using Gnuplot: if the code has been compiled with the <code>save</code> option, it will plot the final matrix in a file <code>solution.png</code>, while with the <code>gif</code> option it will plot a gif with the evolution of the matrix in a file <code>solution.gif</code>;</li>
+<li><code>make clean</code>: remove all the executables and the object files.</li>
+</ul>
+<p>After compilation, the executables can be run with <code>mpirun -np &lt;np&gt; ./jacobi.x &lt;size&gt; &lt;nIter&gt;</code>.</p>
+<p>The Makefile also provides a shortcut to directly compile and run the code and save the output: <code>make %purun NP=&lt;np&gt; SZ=&lt;size&gt; IT=&lt;nIter&gt;</code>, equivalent to <code>make clean &amp;&amp; make %pusave &amp;&amp; mpirun -np NP ./jacobi.x SZ IT &amp;&amp; make plot</code>;</p>
+</section>
+<section id="check-correctness" class="level2">
+<h2 class="anchored" data-anchor-id="check-correctness">Check correctness</h2>
+<p>In order to check correctness of the obtained output, the original serial code is provided in <a href="original_code/">original_code</a> folder, and a special target can be used to directly compare the output of the original code with the one of the optimized code: <code>make compare%pu NP=&lt;nProc&gt; SZ=&lt;size&gt; IT=&lt;nIter&gt;</code> This target will compile and run both the original and the optimized code (with the given number of processes, size and number of iterations, on CPU or GPU), save the outputs in binary format, and compare them using Unix command <code>diff</code>: if the outputs are identical, as expected, no output will be produced, otherwise the output will be</p>
+<pre><code>Binary files output/solution0.dat and original_code/solution.dat differ</code></pre>
+<p>Note: to directly compare the two files without having to worry about precision issues, the original code <code>save_gnuplot</code> function has been modified to save binary files; this is the only change that has been performed on it.</p>
+<blockquote class="blockquote">
+<strong>Note</strong>: MPI-IO writes binary files and does not truncate the file on which it’ll write if it already exists: if you want to run the program with a size which is smaller than the previous one, <code>make clean</code> or empty the <code>output</code> folder before running, in order to generate it from scratch instead of overwriting it. <code>compare%pu</code> targets are already provided with an internal <code>clean</code>, in order to repeatedly compare results without having to worry about non-truncated files.
+</blockquote>
+<div style="page-break-after: always;">
+
+</div>
+</section>
+</section>
+<section id="exercise-3-jacobis-algorithm-with-one-sided-mpi" class="level1">
+<h1>Exercise 3: Jacobi’s Algorithm with One-Sided MPI</h1>
+<section id="introduction-2" class="level2">
+<h2 class="anchored" data-anchor-id="introduction-2">Introduction</h2>
+<p>The third assignment consists of implementing the Jacobi’s method to solve Laplace equation in a distributed memory environment, using the MPI library to communicate between processes in a one-sided fashion.</p>
+<p>Before digging into the implementation of the algorithm, let’s first describe the problem and how to solve it.</p>
+</section>
+<section id="jacobis-algorithm-1" class="level2">
+<h2 class="anchored" data-anchor-id="jacobis-algorithm-1">Jacobi’s algorithm</h2>
+<p>Laplace’s equation is a second-order partial differential equation, often written in the form</p>
+<p><span class="math display">\[
+\nabla^2 V = 0
+\]</span></p>
+<p>where <span class="math inline">\(V\)</span> is the unknown function of the spatial coordinates <span class="math inline">\(x\)</span>, <span class="math inline">\(y\)</span>, and <span class="math inline">\(z\)</span>, and <span class="math inline">\(\nabla^2\)</span> is the Laplace operator. The Laplace equation is named after Pierre-Simon Laplace, who first studied its properties. Solutions of Laplace’s equation are called harmonic functions and are important in many areas of physics, including the study of electromagnetic fields, heat conduction and fluid dynamics. In two dimensions, Laplace’s equation is given by</p>
+<p><span class="math display">\[
+\frac{\partial^2 V}{\partial x^2} + \frac{\partial^2 V}{\partial y^2} = 0
+\]</span></p>
+<p>whose solution can be iteratively found through Jacobi’s method: if we discretize the domain in a grid of points, the value of each point can be updated as the average of its neighbors. The algorithm is as follows:</p>
+<ul>
+<li><p>initialize two matrices as in the following picture: the first matrix is filled with zeros, the second one with <span class="math inline">\(0.5\)</span>, both with the same boundary conditions: <span class="math inline">\(0\)</span> in the upper and right boundaries, <span class="math inline">\(100\)</span> in the lower left corner, with increasing values starting from that corner and getting farther from it along the left and lower boundaries:</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Jacobi-OneSide/imgs/init.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Matrices initialization</figcaption>
+</figure>
+</div></li>
+<li><p>Iterate over the grid points, updating each internal point of the first matrix as the average of its neighbors in the second matrix:</p></li>
+</ul>
+<p><span class="math display">\[
+V_{i,j}^{k+1} = \frac{1}{4} \left( V_{i-1,j}^k + V_{i+1,j}^k + V_{i,j-1}^k + V_{i,j+1}^k \right)
+\]</span></p>
+<ul>
+<li>Swap the pointers of the two matrices and repeat points 2 and 3 until a desired convergence criterion is met.</li>
+</ul>
+<p>The following gif shows the evolution of the matrix during 100 iterations:</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Jacobi-OneSide/imgs/solution.gif" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Matrix evolution</figcaption>
+</figure>
+</div>
+</section>
+<section id="distribute-the-domain-mpi-1" class="level2">
+<h2 class="anchored" data-anchor-id="distribute-the-domain-mpi-1">Distribute the domain: MPI</h2>
+<p>Since at each iteration each point is updated independently on the others (we only need their old value, which is constant during the update), this algorithm clearly opens the door to parallelization: each process can be assigned a subgrid of the domain, and the communication between processes is only needed at the boundaries of the subgrids.</p>
+<p>In this assignment, we will consider the domain to be distributed by rows among multiple MPI processes, hence each process will have a subgrid with a fixed number of rows of the entire grid (equal to the total number of rows divided by the number of processes), and <strong>two more rows</strong>, needed to perform the update, open for the other processes to access and update them through the use of two <code>MPI_Win</code> objects. Since in general the number of rows of the grid is not divisible by the number of processes, some processes will actually have one more row than the others.</p>
+<p>For example, if <code>dim</code><span class="math inline">\(=9\)</span> and <code>NPEs</code><span class="math inline">\(=3\)</span>, we have the situation showed in the following picture:</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Jacobi-OneSide/imgs/sendrecgraph.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Rows exchange between processes</figcaption>
+</figure>
+</div>
+<p>The idea to compute the solution is the following: each process has two submatrices with <code>myWorkSize = 9/3 + 0 = 3</code> rows, and 2 more rows to perform the update. Each process only initializes and updates one submatrix and then puts its first and last row inside the neighbor processes’ windows. More precisely, each process first initializes its own submatrices and its extra rows, and then continuously:</p>
+<ul>
+<li><p>updates the values of the internal points of one submatrix (hence excluding its first and last row and the first and last column) using the values from the other one:</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Jacobi-OneSide/imgs/update.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Matrix update</figcaption>
+</figure>
+</div></li>
+<li><p>updates the first and last row of the same submatrix, using the other one and the extra rows:</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Jacobi-OneSide/imgs/updatebound.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Extra rows update</figcaption>
+</figure>
+</div></li>
+<li><p>puts the first row of the submatrix inside the upper process’ second window and the last row of the submatrix inside the lower process’ first one (first and last process only put a single row, since the other one is a fixed boundary condition):</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="Jacobi-OneSide/imgs/put.png" class="img-fluid figure-img"></p>
+<figcaption class="figure-caption">Put the updated rows inside the neighbor windows</figcaption>
+</figure>
+</div></li>
+<li><p>swaps the pointers to the matrices, so that the new matrix becomes the old one and vice versa;</p></li>
+</ul>
+<p>until a desired convergence criterion is met.</p>
+</section>
+<section id="results-2" class="level2">
+<h2 class="anchored" data-anchor-id="results-2">Results</h2>
+<p>In this section we will analyze the performances obtained by the algorithm. The code has been run on the Leonardo cluster, with up to 16 MPI tasks allocated one per node. The execution time has been measured with the <code>MPI_Wtime</code> function. The tests have been done with a matrix of size 1200x1200 and 12000x12000, with 10 evolution iterations, and 40000x40000, with 1000 iterations, to better study the scalability. The maximum time among all the MPI processes has been plotted. However, I have also collected data regarding the average time and they have showed the same behavior, meaning the workload is correctly distributed among the processes, for this reason they have not been plotted.</p>
+<p>To easily identify the different parts of the code and plot them I have used some terms, here a brief explanation of them is given, in order of appearance in the code:</p>
+<ul>
+<li><code>initPar</code>: parameters and windows initialization;</li>
+<li><code>init</code>: initialization of the matrices;</li>
+<li><code>update</code>: total time spent on updating the matrix;</li>
+<li><code>comm</code> total time spent on updating the extra rows;</li>
+<li><code>save</code>: save the matrix on file using MPI-IO.</li>
+</ul>
+<p>We’ll also plot the results obtained with the standard Send/Recv communication, in order to compare the performances of the two methods.</p>
+<p>Let’s start with the results obtained with the 1200x1200 matrix:</p>
+<table class="table">
+<colgroup>
+<col style="width: 52%">
+<col style="width: 47%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: center;">One-sided communication</th>
+<th style="text-align: center;">Send-Recv communication</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;"><img src="Jacobi-OneSide/imgs/results/120010.png" height="300"></td>
+<td style="text-align: center;"><img src="Jacobi/imgs/results/cpu1200.png" height="300"></td>
+</tr>
+</tbody>
+</table>
+<p>As we can see, there is no scalability due to the very low time spent: <code>initPar</code> takes more than half of the total time, and the time spent on <code>update</code> is negligible. Similar results were obtained with the standard Send/Recv communication, but in that case <code>init</code> was the only relevant part of the code.</p>
+<p>Let’s see how things change with a larger matrix:</p>
+<table class="table">
+<colgroup>
+<col style="width: 52%">
+<col style="width: 47%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: center;">One-sided communication</th>
+<th style="text-align: center;">Send-Recv communication</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;"><img src="Jacobi-OneSide/imgs/results/12k10.png" height="300"></td>
+<td style="text-align: center;"><img src="Jacobi/imgs/results/cpu12000.png" height="300"></td>
+</tr>
+</tbody>
+</table>
+<p>With a larger matrix we can start to appreciate some speedup, and the time spent on <code>update</code> is now significant, although <code>initPar</code> is still very relevant. We can observe as both the <code>init</code> and <code>update</code> parts of the code behave very similarly to the standard Send/Recv communication, but in that case the scalability is much better since there is no windows initialization.</p>
+<p>Let’s see what happens with a much larger matrix and more iterations:</p>
+<table class="table">
+<colgroup>
+<col style="width: 52%">
+<col style="width: 47%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: center;">One-sided communication</th>
+<th style="text-align: center;">Send-Recv communication</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;"><img src="Jacobi-OneSide/imgs/results/40k1000.png" height="300"></td>
+<td style="text-align: center;"><img src="Jacobi/imgs/results/cpu40000.png" height="300"></td>
+</tr>
+</tbody>
+</table>
+<p>We can finally appreciate a great scalability, with the time spent on <code>update</code> being the most relevant part of the code, as we would expect. <code>update</code> time is basically the same for both the one-sided and the standard Send/Recv communication, let’s see how the other parts behave:</p>
+<table class="table">
+<colgroup>
+<col style="width: 52%">
+<col style="width: 47%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: center;">One-sided communication</th>
+<th style="text-align: center;">Send-Recv communication</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;"><img src="Jacobi-OneSide/imgs/results/40k1000noupd.png" height="300"></td>
+<td style="text-align: center;"><img src="Jacobi/imgs/results/cpu40000noupd.png" height="300"></td>
+</tr>
+</tbody>
+</table>
+<p><code>init</code> still shows the same behavior in the two cases, while the communication time is far worse with the one-sided communication, especially with higher number of tasks.</p>
+<section id="save-time-1" class="level3">
+<h3 class="anchored" data-anchor-id="save-time-1">Save time</h3>
+<p>Up to now we have ignored the <code>save</code> time, let’s now see how it behaves compared to the other parts of the code:</p>
+<p><img src="Jacobi-OneSide/imgs/results/1200save.png" class="img-fluid"></p>
+<p><img src="Jacobi-OneSide/imgs/results/12ksave.png" class="img-fluid"></p>
+<p>As we can see, using MPI-IO we are able to save some time writing on file in parallel, but the time spent on this part is still by far the most time-consuming part of the code.</p>
+</section>
+</section>
+<section id="how-to-run-2" class="level2">
+<h2 class="anchored" data-anchor-id="how-to-run-2">How to run</h2>
+<p>A Makefile is provided to easily compile and run the code. The available targets are:</p>
+<ul>
+<li><code>make</code>: produce an executable that prints the elapsed times;</li>
+<li><code>make save</code>: produce an executable that also saves the final matrix in a file <code>solution.dat</code>;</li>
+<li><code>make gif</code>: produce an executable that also saves the evolution of the matrix in multiple <code>.dat</code> files;</li>
+<li><code>make plot</code>: produce a plot using Gnuplot: if the code has been compiled with the <code>save</code> target, it will plot the final matrix in a file <code>solution.png</code>, while with the <code>gif</code> option it will plot a gif with the evolution of the matrix in a file <code>solution.gif</code>, both in the <code>output</code> folder;</li>
+<li><code>make clean</code>: remove all the executables and the object files.</li>
+</ul>
+<p>After compilation, the executables can be run with <code>mpirun -np &lt;np&gt; ./main &lt;size&gt; &lt;nIter&gt;</code>.</p>
+<p>The Makefile also provides a shortcut to directly compile and run the code and save the output: <code>make run NP=&lt;np&gt; SZ=&lt;size&gt; IT=&lt;nIter&gt;</code>, equivalent to <code>make clean &amp;&amp; make save &amp;&amp; mpirun -np NP ./jacobi.x SZ IT &amp;&amp; make plot</code>.</p>
+</section>
+<section id="check-correctness-1" class="level2">
+<h2 class="anchored" data-anchor-id="check-correctness-1">Check correctness</h2>
+<p>In order to check correctness of the obtained output, the serial code is provided in <a href="original_code/">original_code</a> folder, and a special target can be used to directly compare the output of the original code with the one of the optimized code: <code>make compare NP=&lt;nProc&gt; SZ=&lt;size&gt; IT=&lt;nIter&gt;</code> This target will compile and run both the original and the optimized code (with the given number of processes, size and number of iterations), save the outputs in binary format, and compare them using Unix command <code>diff</code>: if the outputs are identical, as expected, no output will be produced, otherwise the output will be</p>
+<pre><code>Binary files output/solution0.dat and original_code/solution.dat differ</code></pre>
+<blockquote class="blockquote">
+<strong>Side note</strong>: MPI-IO writes binary files and does not truncate the file on which it’ll write if it already exists: if you want to run the program with a size which is smaller than the previous one, delete the <code>solution.dat</code> file before running, in order to generate it from scratch instead of overwriting it. <code>compare</code> target is already provided with an internal <code>clean</code>, in order to repeatedly compare results without having to worry about non-truncated files.
+</blockquote>
+</section>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    text: function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>
