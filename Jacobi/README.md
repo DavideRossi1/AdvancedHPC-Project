@@ -100,7 +100,7 @@ In this section we will analyze the performances obtained by the algorithm, both
 
 To easily identify the different parts of the code and plot them I have used some terms, here a brief explanation of them is given, in order of appearance in the code:
 - `initacc`: initialization of OpenACC, with `acc_get_num_devices`, `acc_set_device_num` and `acc_init`;
-- `copyin`: copying the matrices from CPU to GPU;
+- `copyin`: enter the data region, allocate the matrices on GPU;
 - `init`: initialization of the matrices;
 - `update`: total time spent on updating the matrix;
 - `sendrecv` total time spent on exchanging the ghost rows;
@@ -115,7 +115,7 @@ Let's start with the CPU version:
 
 ![cpu1200](imgs/results/cpu1200.png)
 
-As we can see, there is basically no scalability due to the very low time spent. `init` takes almost all the time, with `update` being quite irrelevant due to the very low number of updates done. As the number of MPI tasks increases, we can see that the time spent on `sendrecv` increases a bit as we would expect.
+As we can see, there is basically no scalability due to the very low time spent. `init` takes almost all the time, with `update` being practically irrelevant due to the very low number of updates done.
 
 Let's see how things change with a larger matrix:
 
@@ -177,11 +177,11 @@ A Makefile is provided to easily compile and run the code. The available targets
 
 After compilation, the executables can be run with `mpirun -np <np> ./jacobi.x <size> <nIter>`.
 
-The Makefile also provides a shortcut to directly compile and run the code and plot the output: `make %purun NP=<np> SZ=<size> IT=<nIter>`, equivalent to `make clean && make %pusave && mpirun -np NP ./jacobi.x SZ IT && make plot`;
+The Makefile also provides a shortcut to directly compile and run the code and save the output: `make %purun NP=<np> SZ=<size> IT=<nIter>`, equivalent to `make clean && make %pusave && mpirun -np NP ./jacobi.x SZ IT && make plot`;
 
 ## Check correctness
 
-In order to check correctness of the obtained output, the original code is provided in [original_code](original_code/) folder, and a special target can be used to directly compare the output of the original code with the one of the optimized code: 
+In order to check correctness of the obtained output, the original serial code is provided in [original_code](original_code/) folder, and a special target can be used to directly compare the output of the original code with the one of the optimized code: 
 `make compare%pu NP=<nProc> SZ=<size> IT=<nIter>`
 This target will compile and run both the original and the optimized code (with the given number of processes, size and number of iterations, on CPU or GPU), save the outputs in binary format, and compare them using Unix command `diff`: if the outputs are identical, as expected, no output will be produced, otherwise the output will be
 ```

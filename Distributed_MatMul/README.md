@@ -68,7 +68,11 @@ The basic version of the algorithm is the naive implementation of the matrix-mat
 
 ## CPU improvement: BLAS 
 
-The improved CPU version uses the BLAS library to compute the matrix-matrix multiplication. The BLAS library is a set of routines that provide standard building blocks for performing basic vector and matrix operations. The routine we are interested in is `dgemm`, which computes the matrix-matrix product of two matrices with double-precision elements. The code here is just a little bit more complex than the basic version: product and `myCBlock` placement are split in two different steps:
+The improved CPU version uses the BLAS library to compute the matrix-matrix multiplication. 
+
+The BLAS library is *"...a specification that prescribes a set of low-level routines for performing common linear algebra operations such as vector addition, scalar multiplication, dot products, linear combinations, and matrix multiplication... (from [Wikipedia](https://en.wikipedia.org/wiki/Basic_Linear_Algebra_Subprograms))"*, and constitutes the de-facto standard for linear algebra libraries. 
+
+The routine we are interested in is `dgemm`, which computes the matrix-matrix product of two matrices with double-precision elements. The code here is just a little bit more complex than the basic version: product and `myCBlock` placement are split in two different steps:
 
 ![blas](imgs/blas.png)
 
@@ -97,8 +101,8 @@ To easily identify the different parts of the code and plot them I have used som
 - `initComm`: initialization of `myBblock`, `recvcounts` and `displs` for the communication;
 - `resAlloc`: everything related to the allocation of the matrices, both on CPU and on GPU (hence `malloc`, `cudaMalloc`, `cublasCreate` and `cudaMemcpy`);
 - `gather`: gathering of `myBblock` into `columnB` from all the processes;
-- `dGemm`: computation of the product, with triple loop (naive), `dgemm` (cpu) or `cublasDgemm` (gpu);
-- `place`: placement of `myCBlock` in `myC`.
+- `dGemm`: computation of the product, with triple loop (naive), `cblas_dgemm` (cpu) or `cublasDgemm` (gpu);
+- `place`: placement of `myCBlock` inside `myC`.
 
 ### CPU - Naive
 
@@ -124,7 +128,7 @@ Without the product part:
 
 ![cpuall](imgs/results/cpuall.png)
 
-Also in this case, `dGemm` is the most time consuming part of the code, as we would expect. However, `dGemm` time is now ~20 times smaller than in the naive case, hence `gather` and `init` are quite significant now. 
+Also in this case, `dGemm` is the most time consuming part of the code, as we would expect. However, `dGemm` time is now ~20 times smaller than in the naive case, hence `gather` and `init` become quite significant now. 
 
 Notice that:
 - `place` time was not present in the naive case, since the product was directly placed in `myC`, while in this case we first compute the product and then place it in `myC`. However, the time spent in `place` is negligible with respect to the time spent in `dGemm`, `init` and `gather`;
@@ -161,8 +165,8 @@ Let's now analyze the results for the 45000x45000 matrices:
 ![gpu45000](imgs/results/gpu45kall.png)
 
 By looking at the results of the measurements, we immediately spot two things:
-- `init` and `dGemm` take nearly the same time, although the latter is much more computationally intensive than the former, since `init` is performed on the CPU, while `dGemm` is performed on the GPU;
-- `gather` and `resAlloc` are less impactant than in the previous cases, but still quite relevant, especially with 16 and 32 MPI tasks (corresponding to 4 and 8 nodes).
+- `init` and `dGemm` take more or less the same time, although the latter is much more computationally intensive than the former, since `init` is performed on the CPU, while `dGemm` is performed on the GPU;
+- `gather` and `resAlloc` are still quite relevant, especially with 16 and 32 MPI tasks (corresponding to 4 and 8 nodes).
 
 ### Comparison
 
@@ -180,6 +184,7 @@ A Makefile is provided to easily compile and run the code. The available targets
 
 - `make naive`: produce an executable running with the naive algorithm (triple loop);
 - `make cpu`: produce an executable running with the BLAS library (requires BLAS, on Leonardo you can load it with `module load openblas/0.3.24--nvhpc--23.11`); 
+  > **Note**: Leonardo also provides the `openblas/0.3.24--gcc--12.2.0` module, but this version is not able to execute `cblas_dgemm` routine in parallel, hence we wouldn't be able to exploit the full potential of the CPU;
 - `make gpu`: produce an executable running with CUDA and CUBLAS library (requires CUDA and CUBLAS, in Leonardo they are included in the `nvhpc` module which also provides a CUDA-Aware MPI library);
 - `make clean`: remove all the executables and the object files.
 

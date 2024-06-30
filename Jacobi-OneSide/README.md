@@ -81,24 +81,34 @@ In this section we will analyze the performances obtained by the algorithm. The 
 
 To easily identify the different parts of the code and plot them I have used some terms, here a brief explanation of them is given, in order of appearance in the code:
 - `initPar`: parameters and windows initialization; 
-- `init`: initialization of the matrix;
+- `init`: initialization of the matrices;
 - `update`: total time spent on updating the matrix;
 - `comm` total time spent on updating the extra rows;
 - `save`: save the matrix on file using MPI-IO.
 
-![cpu1200](imgs/results/120010.png)
+We'll also plot the results obtained with the standard Send/Recv communication, in order to compare the performances of the two methods (the first image will be the one-sided communication, the second one is the standard Send/Recv communication).
 
-As we can see, there is no scalability due to the very low time spent: `initPar` takes more than half of the total time, and the time spent on `update` is negligible.
+Let's start with the results obtained with the 1200x1200 matrix:
+
+![cpu1200](imgs/results/120010.png) ![cpu1200](../Jacobi/imgs/results/cpu1200.png)
+
+As we can see, there is no scalability due to the very low time spent: `initPar` takes more than half of the total time, and the time spent on `update` is negligible. Similar results were obtained with the standard Send/Recv communication, but in that case `init` was the only relevant part of the code.
 
 Let's see how things change with a larger matrix:
 
-![cpu12000](imgs/results/12k10.png)
+![cpu12000](imgs/results/12k10.png) ![cpu12000](../Jacobi/imgs/results/cpu12000.png)
 
-With a larger matrix we can start to appreciate some speedup, and the time spent on `update` is now significant, although `init` is still the most time-consuming part of the code and `initPar` is still very relevant. Let's see what happens with a much larger matrix and more iterations:
+With a larger matrix we can start to appreciate some speedup, and the time spent on `update` is now significant, although `initPar` is still very relevant. We can observe as both the `init` and `update` parts of the code behave very similarly to the standard Send/Recv communication, but in that case the scalability is much better since there is no windows initialization.
 
-![cpu40000](imgs/results/40k1000.png)
+Let's see what happens with a much larger matrix and more iterations:
 
-We can finally appreciate a great scalability, with the time spent on `update` being the most relevant part of the code, as we would expect.
+![cpu40000](imgs/results/40k1000.png) ![cpu40000](../Jacobi/imgs/results/cpu40000.png)
+
+We can finally appreciate a great scalability, with the time spent on `update` being the most relevant part of the code, as we would expect. `update` time is basically the same for both the one-sided and the standard Send/Recv communication, let's see how the other parts behave:
+
+![cpu40000](imgs/results/40k1000noupd.png) ![cpu40000](../Jacobi/imgs/results/cpu40000noupd.png)
+
+`init` still shows the same behavior in the two cases, while the communication time is far worse with the one-sided communication, especially with higher number of tasks.
 
 ### Save time
 
@@ -133,4 +143,4 @@ This target will compile and run both the original and the optimized code (with 
 Binary files output/solution0.dat and original_code/solution.dat differ
 ```
 
-**Side note**: MPI-IO writes binary files and does not truncate the file on which it'll write if it already exists: if you want to run the program with a size which is smaller than the previous one, delete the `solution.dat` file before running, in order to generate it from scratch instead of overwriting it. `compare` target is already provided with an internal `clean`, in order to repeatedly compare results without having to worry about non-truncated files.
+>**Side note**: MPI-IO writes binary files and does not truncate the file on which it'll write if it already exists: if you want to run the program with a size which is smaller than the previous one, delete the `solution.dat` file before running, in order to generate it from scratch instead of overwriting it. `compare` target is already provided with an internal `clean`, in order to repeatedly compare results without having to worry about non-truncated files.
